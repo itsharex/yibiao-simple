@@ -157,6 +157,16 @@ build.bat
 - **问题反馈**: [GitHub Issues]((https://github.com/yibiaoai/yibiao-simple/issues)
 - **邮箱联系**: support@yibiao.pro
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=FB208%2Fyibiao-simple&type=timeline&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=FB208/yibiao-simple&type=timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=FB208/yibiao-simple&type=timeline&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=FB208/yibiao-simple&type=timeline&legend=top-left" />
+ </picture>
+</a>
+
 ---
 
 <p align="center">
