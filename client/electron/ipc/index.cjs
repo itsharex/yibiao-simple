@@ -10,7 +10,7 @@ const { createFileService } = require('../services/fileService.cjs');
 function registerIpcHandlers(app) {
   const configStore = createConfigStore(app);
   const aiService = createAiService({ configStore });
-  const fileService = createFileService();
+  const fileService = createFileService({ configStore });
   const exportService = createExportService();
 
   registerConfigIpc({ configStore, aiService });

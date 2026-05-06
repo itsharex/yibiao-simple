@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useToast } from '../../../shared/ui';
+import { FloatingToolbar, useToast } from '../../../shared/ui';
+import type { FloatingToolbarGroup } from '../../../shared/ui';
 import type { ClientConfig, FileParserProvider, ImageModelProvider } from '../../../shared/types';
 import type { SettingsPageState } from '../types';
 
@@ -101,6 +102,7 @@ const initialState: SettingsPageState = {
 function SettingsPage() {
   const [state, setState] = useState<SettingsPageState>(initialState);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [savedConfig, setSavedConfig] = useState<ClientConfig | null>(null);
   const [textModels, setTextModels] = useState<string[]>([]);
   const [imageModels, setImageModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState<'text' | 'image' | null>(null);
@@ -130,6 +132,7 @@ function SettingsPage() {
         imageModel: config.image_model,
         fileParser: config.file_parser,
       }));
+      setSavedConfig(config);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '加载客户端配置失败';
       showToast(errorMessage, 'error');
@@ -148,9 +151,14 @@ function SettingsPage() {
     try {
       const result = await window.yibiao?.config.save(config);
       showToast(result?.success ? '配置已保存' : result?.message || '配置保存失败', result?.success ? 'success' : 'error');
+      if (result?.success) {
+        setSavedConfig(config);
+      }
+      return Boolean(result?.success);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '配置保存失败';
       showToast(errorMessage, 'error');
+      return false;
     }
   };
 
@@ -161,7 +169,11 @@ function SettingsPage() {
   const testTextConfig = async () => {
     try {
       setTestingTextModel(true);
-      await window.yibiao?.config.save(createClientConfig());
+      const config = createClientConfig();
+      const result = await window.yibiao?.config.save(config);
+      if (result?.success) {
+        setSavedConfig(config);
+      }
       const content = await window.yibiao?.ai.chat({
         messages: [{ role: 'user', content: 'hi' }],
         temperature: 0,
@@ -182,8 +194,12 @@ function SettingsPage() {
   const testImageConfig = async () => {
     try {
       setTestingImageModel(true);
-      await window.yibiao?.config.save(createClientConfig());
-      const result = await window.yibiao?.ai.testImageModel(createClientConfig());
+      const config = createClientConfig();
+      const saveResult = await window.yibiao?.config.save(config);
+      if (saveResult?.success) {
+        setSavedConfig(config);
+      }
+      const result = await window.yibiao?.ai.testImageModel(config);
       const previewSrc = result?.image_url || (result?.image_data ? `data:${result.mime_type || 'image/png'};base64,${result.image_data}` : '');
 
       if (previewSrc) {
@@ -245,6 +261,76 @@ function SettingsPage() {
       setLoadingModels(null);
     }
   };
+
+  const isActiveTabDirty = () => {
+    if (!savedConfig) {
+      return false;
+    }
+
+    if (activeTab === 'text-model') {
+      return JSON.stringify(state.textModel) !== JSON.stringify({
+        api_key: savedConfig.api_key,
+        base_url: savedConfig.base_url || '',
+        model_name: savedConfig.model_name,
+      });
+    }
+
+    if (activeTab === 'image-model') {
+      return JSON.stringify(state.imageModel) !== JSON.stringify(savedConfig.image_model);
+    }
+
+    if (activeTab === 'file-parser') {
+      return JSON.stringify(state.fileParser) !== JSON.stringify(savedConfig.file_parser);
+    }
+
+    return false;
+  };
+
+  const saveActiveTabConfig = async () => {
+    if (activeTab === 'text-model') {
+      await saveTextConfig();
+      return;
+    }
+    if (activeTab === 'image-model') {
+      await saveImageConfig();
+      return;
+    }
+    if (activeTab === 'file-parser') {
+      await saveFileParserConfig();
+    }
+  };
+
+  const canSaveActiveTab = activeTab === 'text-model' || activeTab === 'image-model' || activeTab === 'file-parser';
+  const activeTabDirty = isActiveTabDirty();
+  const settingsToolbarGroups: FloatingToolbarGroup[] = canSaveActiveTab
+    ? [
+        {
+          id: 'settings-save-state',
+          actions: [
+            {
+              id: 'save-state',
+              label: activeTabDirty ? '未保存' : '已保存',
+              variant: 'ghost',
+              disabled: true,
+              onClick: () => undefined,
+            },
+          ],
+        },
+        {
+          id: 'settings-save-action',
+          actions: [
+            {
+              id: 'save',
+              label: '保存',
+              variant: 'primary',
+              disabled: !activeTabDirty,
+              tooltip: activeTabDirty ? '保存当前设置' : '当前设置已保存',
+              onClick: saveActiveTabConfig,
+            },
+          ],
+        },
+      ]
+    : [];
 
   return (
     <div className="settings-page">
@@ -374,15 +460,12 @@ function SettingsPage() {
                   {loadingModels === 'text' && <span className="inline-spinner" aria-hidden="true" />}
                   {loadingModels === 'text' ? '获取中' : '获取'}
                 </button>
+                <button type="button" className="inline-action" onClick={testTextConfig} disabled={testingTextModel}>
+                  {testingTextModel && <span className="inline-spinner" aria-hidden="true" />}
+                  {testingTextModel ? '测试中' : '测试'}
+                </button>
               </div>
             </label>
-          </div>
-          <div className="settings-actions">
-            <button type="button" className="secondary-action" onClick={testTextConfig} disabled={testingTextModel}>
-              {testingTextModel && <span className="inline-spinner" aria-hidden="true" />}
-              {testingTextModel ? '测试中' : '测试'}
-            </button>
-            <button type="button" className="primary-action" onClick={saveTextConfig}>保存</button>
           </div>
         </section>
       )}
@@ -482,15 +565,12 @@ function SettingsPage() {
                   {loadingModels === 'image' && <span className="inline-spinner" aria-hidden="true" />}
                   {loadingModels === 'image' ? '获取中' : '获取'}
                 </button>
+                <button type="button" className="inline-action" onClick={testImageConfig} disabled={testingImageModel}>
+                  {testingImageModel && <span className="inline-spinner" aria-hidden="true" />}
+                  {testingImageModel ? '测试中' : '测试'}
+                </button>
               </div>
             </label>
-          </div>
-          <div className="settings-actions">
-            <button type="button" className="secondary-action" onClick={testImageConfig} disabled={testingImageModel}>
-              {testingImageModel && <span className="inline-spinner" aria-hidden="true" />}
-              {testingImageModel ? '测试中' : '测试'}
-            </button>
-            <button type="button" className="primary-action" onClick={saveImageConfig}>保存</button>
           </div>
           {imageTestPreview && (
             <div className="image-test-preview">
@@ -571,9 +651,6 @@ function SettingsPage() {
           <div className="parser-note">
             招标文件大多数是 Word 或 Word 导出的带文字层 PDF，本地解析可以适应 95% 以上的情况；如果解析失败，再尝试 MinerU 精准解析 API。
           </div>
-          <div className="settings-actions">
-            <button type="button" className="primary-action" onClick={saveFileParserConfig}>保存文件解析配置</button>
-          </div>
         </section>
       )}
 
@@ -591,6 +668,7 @@ function SettingsPage() {
           </div>
         </section>
       )}
+      <FloatingToolbar groups={settingsToolbarGroups} label="设置保存工具条" />
     </div>
   );
 }
