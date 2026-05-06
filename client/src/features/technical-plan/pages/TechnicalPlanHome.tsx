@@ -93,19 +93,12 @@ function TechnicalPlanHome() {
         <DocumentAnalysisPage
           fileName={state.fileName}
           fileContent={state.fileContent}
-          projectOverview={state.projectOverview}
-          techRequirements={state.techRequirements}
           onFileImported={(fileName, fileContent) => setState((prev) => ({
             ...prev,
             fileName,
             fileContent,
             projectOverview: '',
             techRequirements: '',
-          }))}
-          onAnalysisComplete={(projectOverview, techRequirements) => setState((prev) => ({
-            ...prev,
-            projectOverview,
-            techRequirements,
           }))}
           onNext={() => switchStep('outline-edit')}
         />

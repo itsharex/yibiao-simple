@@ -15,6 +15,8 @@ export interface FileImportResult {
   message: string;
   file_content?: string;
   file_name?: string;
+  parser_provider?: string;
+  parser_label?: string;
   old_outline?: string;
 }
 
