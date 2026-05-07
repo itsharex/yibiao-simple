@@ -65,6 +65,18 @@
 ### Errors Encountered
 | Error | Attempt | Resolution |
 | --- | --- | --- |
+
+## Current Task: Step02/Step03 左侧进度块统一
+
+### Goal
+统一 Step02/Step03/Step04 左侧进度区域视觉和交互：Step02、Step03 使用 Step04 的 `content-outline-stats` 可折叠结构，并保持任务列表、生成日志和正文区域独立滚动。
+
+### Phases
+- [completed] 1. 将 Step02 解析进度迁入左侧任务面板顶部，并改为可折叠 `content-outline-stats`。
+- [completed] 2. 将 Step03 生成进度从日志列表中拆出，迁入左侧面板顶部，并改为可折叠 `content-outline-stats`。
+- [completed] 3. 调整 CSS 布局，确保 Step02 任务列表、Step02 阅读器、Step03 日志列表独立滚动。
+- [completed] 4. 清理旧 `.outline-ai-*`、`.bid-analysis-progress-*` 未引用样式。
+- [completed] 5. 运行 `npm run build` 和 `git diff --check` 验证。
 | 普通 Node 环境 require `updateService.cjs` 时 `electron-updater` 立即访问 Electron app 并报 `Cannot read properties of undefined (reading 'getVersion')` | 第一次模块加载验证 | 将 `electron-updater` 改为 `setupAutoUpdate()` 内、且 `app.isPackaged` 后懒加载 |
 | Windows 本地打包解压 `winCodeSign` 时因当前用户无符号链接权限失败 | 第一次 Windows unpacked 打包验证 | 当前阶段不做签名，关闭 `win.signAndEditExecutable`，避免触发 winCodeSign 资源编辑链路 |
 | Actions 成功但 Release 没有产物 | 首次 `v2.0.1` 远程发布验证 | 改为 `electron-builder --publish never` 只构建，再用 `gh release upload --clobber` 显式上传产物，避免 `existingType=release publishingType=draft` 冲突 |

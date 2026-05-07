@@ -34,7 +34,7 @@ const modeOptions: Array<{ id: BidAnalysisMode; title: string; desc: string; bad
 ];
 
 const taskGroups = [
-  { title: '核心信息', ids: ['projectOverview', 'techRequirements', 'projectInfo'] },
+  { title: '必需项', ids: ['projectOverview', 'techRequirements', 'projectInfo'] },
   { title: '投标流程', ids: ['keyInfo', 'marginInfo', 'openBid'] },
   { title: '评审要求', ids: ['qualificationReview', 'complianceCheck', 'evaluationBid', 'businessScoring'] },
   { title: '主体与合同', ids: ['partAInfo', 'agentInfo', 'discardedBids', 'signingProcess', 'terminationCondition'] },
@@ -160,6 +160,7 @@ function BidAnalysisPage({
 }: BidAnalysisPageProps) {
   const [running, setRunning] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState('projectOverview');
+  const [progressCollapsed, setProgressCollapsed] = useState(false);
   const { showToast } = useToast();
   const selectedTasks = useMemo(() => getBidAnalysisTasks(mode), [mode]);
   const visibleSelectedTaskId = selectedTasks.some((task) => task.id === selectedTaskId)
@@ -248,69 +249,58 @@ function BidAnalysisPage({
         </button>
       </section>
 
-      <section className="bid-analysis-config">
-        <div className="bid-analysis-progress-card">
-          <div className="analysis-result-head">
-            <strong>解析进度</strong>
-            <span>{doneCount}/{selectedTasks.length} 项</span>
-          </div>
-          <div className="bid-analysis-progress-track" aria-label="解析进度">
-            <span style={{ width: `${progress}%` }} />
-          </div>
-          <p>{requiredDone && progress === 100 ? '关键项已解析完成，可以进入下一步。' : '等待项目概述和技术评分要求解析成功。'}</p>
-        </div>
-        <div className="bid-analysis-key-status">
-          {['projectOverview', 'techRequirements'].map((id) => {
-            const task = selectedTasks.find((item) => item.id === id);
-            const state = tasks[id];
-            const status = state?.status || 'idle';
-
-            return (
-              <button
-                type="button"
-                className={`bid-analysis-key-card is-${status}`}
-                key={id}
-                onClick={() => setSelectedTaskId(id)}
-              >
-                <span>{task?.label || id}</span>
-                <strong>{statusLabel[status]}</strong>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
       <section className="bid-analysis-workspace">
         <aside className="bid-analysis-task-pane" aria-label="解析任务列表">
-          {taskGroups.map((group) => {
-            const groupTasks = selectedTasks.filter((task) => group.ids.includes(task.id));
-            if (!groupTasks.length) {
-              return null;
-            }
-
-            return (
-              <div className="bid-analysis-task-group" key={group.title}>
-                <span>{group.title}</span>
-                {groupTasks.map((task) => {
-                  const status = tasks[task.id]?.status || 'idle';
-                  const content = tasks[task.id]?.content || '';
-
-                  return (
-                    <button
-                      type="button"
-                      className={`bid-analysis-task-item is-${status}${visibleSelectedTaskId === task.id ? ' is-active' : ''}`}
-                      key={task.id}
-                      onClick={() => setSelectedTaskId(task.id)}
-                    >
-                      <strong>{task.label}</strong>
-                      <small>{content ? `${content.length} 字` : task.description}</small>
-                      <em>{statusLabel[status]}</em>
-                    </button>
-                  );
-                })}
+          <div className="analysis-result-head bid-analysis-task-head">
+            <strong>核心信息</strong>
+            <span>{doneCount}/{selectedTasks.length} 项</span>
+          </div>
+          <div className={`content-outline-stats bid-analysis-progress-summary${progressCollapsed ? ' is-collapsed' : ''}`}>
+            <button type="button" onClick={() => setProgressCollapsed((prev) => !prev)} aria-expanded={!progressCollapsed}>
+              <span>解析进度</span>
+              <strong>{doneCount}/{selectedTasks.length}</strong>
+              <em>{progressCollapsed ? '展开' : '折叠'}</em>
+            </button>
+            {!progressCollapsed && (
+              <div className="content-outline-stats-body">
+                <div className="content-generation-progress-track" aria-label={`解析进度 ${progress}%`}>
+                  <span style={{ width: `${progress}%` }} />
+                </div>
+                <p>{requiredDone && progress === 100 ? '关键项已解析完成，可以进入下一步。' : '等待项目概述和技术评分要求解析成功。'}</p>
               </div>
-            );
-          })}
+            )}
+          </div>
+          <div className="bid-analysis-task-list">
+            {taskGroups.map((group) => {
+              const groupTasks = selectedTasks.filter((task) => group.ids.includes(task.id));
+              if (!groupTasks.length) {
+                return null;
+              }
+
+              return (
+                <div className="bid-analysis-task-group" key={group.title}>
+                  <span>{group.title}</span>
+                  {groupTasks.map((task) => {
+                    const status = tasks[task.id]?.status || 'idle';
+                    const content = tasks[task.id]?.content || '';
+
+                    return (
+                      <button
+                        type="button"
+                        className={`bid-analysis-task-item is-${status}${visibleSelectedTaskId === task.id ? ' is-active' : ''}`}
+                        key={task.id}
+                        onClick={() => setSelectedTaskId(task.id)}
+                      >
+                        <strong>{task.label}</strong>
+                        <small>{content ? `${content.length} 字` : task.description}</small>
+                        <em>{statusLabel[status]}</em>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
         </aside>
 
         <article className="bid-analysis-reader">

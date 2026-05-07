@@ -877,13 +877,11 @@ button {
 }
 
 .bid-analysis-page {
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
 }
 
 .bid-analysis-command-bar,
-.bid-analysis-progress-card,
-.bid-analysis-key-card,
 .bid-analysis-workspace {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(220, 223, 230, 0.88);
@@ -963,78 +961,6 @@ button {
   opacity: 0.82;
 }
 
-.bid-analysis-config {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(330px, 0.72fr);
-  gap: 16px;
-}
-
-.bid-analysis-progress-card {
-  overflow: hidden;
-}
-
-.bid-analysis-progress-card p {
-  margin: 14px 20px 20px;
-  color: var(--yb-text-soft);
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.bid-analysis-progress-track {
-  height: 10px;
-  margin: 18px 20px 0;
-  overflow: hidden;
-  background: rgba(33, 116, 253, 0.1);
-  border-radius: 999px;
-}
-
-.bid-analysis-progress-track span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--yb-primary), var(--yb-violet));
-  border-radius: inherit;
-  transition: width 180ms ease;
-}
-
-.bid-analysis-key-status {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.bid-analysis-key-card {
-  display: grid;
-  gap: 8px;
-  padding: 18px;
-  text-align: left;
-}
-
-.bid-analysis-key-card:hover {
-  border-color: rgba(33, 116, 253, 0.22);
-}
-
-.bid-analysis-key-card span {
-  color: var(--yb-text-soft);
-  font-size: 13px;
-}
-
-.bid-analysis-key-card strong {
-  color: var(--yb-text);
-  font-size: 20px;
-}
-
-.bid-analysis-key-card.is-success strong {
-  color: #137a43;
-}
-
-.bid-analysis-key-card.is-running strong {
-  color: var(--yb-primary);
-}
-
-.bid-analysis-key-card.is-error strong {
-  color: #c83220;
-}
-
 .bid-analysis-workspace {
   display: grid;
   grid-template-columns: 330px minmax(0, 1fr);
@@ -1044,12 +970,30 @@ button {
 
 .bid-analysis-task-pane {
   display: grid;
-  align-content: start;
-  gap: 18px;
-  overflow: auto;
-  padding: 18px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: linear-gradient(180deg, rgba(248, 250, 253, 0.86), #ffffff);
   border-right: 1px solid var(--yb-border-soft);
+}
+
+.bid-analysis-task-head {
+  padding: 18px 20px;
+}
+
+.bid-analysis-progress-summary {
+  border-bottom: 1px solid var(--yb-border-soft);
+}
+
+.bid-analysis-task-list {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  scrollbar-gutter: stable;
 }
 
 .bid-analysis-task-group {
@@ -1132,6 +1076,8 @@ button {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .bid-analysis-reader-head {
@@ -1192,6 +1138,7 @@ button {
 .bid-analysis-output {
   max-height: none;
   min-height: 0;
+  overflow: auto;
   padding: 22px 24px 28px;
 }
 
@@ -1242,6 +1189,7 @@ button {
 
 .bid-analysis-empty {
   min-height: 0;
+  overflow: auto;
 }
 
 .content-generation-page {
@@ -1362,6 +1310,10 @@ button {
   gap: 10px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--yb-border-soft);
+}
+
+.content-outline-stats.is-collapsed {
+  gap: 0;
 }
 
 .content-outline-stats > button {
@@ -1884,7 +1836,7 @@ button {
 }
 
 .outline-progress-panel {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .outline-detail-panel {
@@ -1930,118 +1882,18 @@ button {
   box-shadow: 0 10px 26px rgba(33, 116, 253, 0.08);
 }
 
-.outline-ai-status {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  background:
-    linear-gradient(135deg, rgba(33, 116, 253, 0.1), rgba(91, 84, 211, 0.08)),
-    #ffffff;
-  border: 1px solid rgba(33, 116, 253, 0.14);
-  border-radius: 18px;
-}
-
-.outline-ai-status-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-}
-
-.outline-ai-status-row strong {
-  color: var(--yb-text);
-  font-size: 14px;
-}
-
-.outline-ai-status-row em {
-  color: var(--yb-primary);
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 900;
-}
-
-.outline-ai-status p {
-  margin: 0;
-  color: var(--yb-text-soft);
-  font-size: 13px;
-  line-height: 1.65;
-}
-
-.outline-ai-pulse {
-  width: 10px;
-  height: 10px;
-  background: var(--yb-primary);
-  border-radius: 999px;
-  box-shadow: 0 0 0 6px rgba(33, 116, 253, 0.12);
-}
-
-.outline-ai-status.is-running .outline-ai-pulse {
-  animation: ai-pulse 1.2s ease-in-out infinite;
-}
-
-.outline-ai-status.is-error {
-  background:
-    linear-gradient(135deg, rgba(200, 50, 32, 0.08), rgba(255, 255, 255, 0.9)),
-    #ffffff;
-  border-color: rgba(200, 50, 32, 0.18);
-}
-
-.outline-ai-status.is-error .outline-ai-pulse {
-  background: #c83220;
-  box-shadow: 0 0 0 6px rgba(200, 50, 32, 0.1);
-}
-
-.outline-ai-status.is-error .outline-ai-status-row em {
-  color: #c83220;
-}
-
-.outline-ai-progress {
-  height: 7px;
-  overflow: hidden;
-  background: rgba(33, 116, 253, 0.12);
-  border-radius: 999px;
-}
-
-.outline-ai-progress span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--yb-primary), var(--yb-violet));
-  border-radius: inherit;
-  transition: width 220ms ease;
-}
-
-.outline-ai-status.is-running .outline-ai-progress span {
-  position: relative;
-  overflow: hidden;
-}
-
-.outline-ai-status.is-running .outline-ai-progress span::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.52), transparent);
-  animation: ai-scan 1.4s linear infinite;
-}
-
-.outline-ai-status.is-error .outline-ai-progress span {
-  background: linear-gradient(90deg, #e25a48, #c83220);
-}
-
-.outline-ai-meta {
+.outline-progress-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.outline-ai-meta span {
+.outline-progress-meta span {
   padding: 5px 8px;
   color: var(--yb-text-muted);
   font-size: 12px;
   font-weight: 800;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(23, 32, 51, 0.05);
   border: 1px solid rgba(220, 223, 230, 0.72);
   border-radius: 999px;
 }
@@ -2272,16 +2124,6 @@ button {
   50% {
     transform: scale(1.08);
     box-shadow: 0 0 0 9px rgba(33, 116, 253, 0.04);
-  }
-}
-
-@keyframes ai-scan {
-  from {
-    transform: translateX(-100%);
-  }
-
-  to {
-    transform: translateX(100%);
   }
 }
 
@@ -3014,7 +2856,6 @@ button {
   }
 
   .bid-analysis-command-bar,
-  .bid-analysis-config,
   .bid-analysis-workspace,
   .content-generation-command-bar,
   .content-generation-workspace,
@@ -3031,6 +2872,9 @@ button {
   .outline-tree-list,
   .outline-progress-log,
   .outline-detail-body,
+  .bid-analysis-task-list,
+  .bid-analysis-output,
+  .bid-analysis-json-table-wrap,
   .content-outline-list,
   .content-generation-output {
     max-height: 520px;
@@ -3159,7 +3003,6 @@ button {
   .category-grid,
   .workspace-grid,
   .analysis-result-grid,
-  .bid-analysis-key-status,
   .about-grid {
     grid-template-columns: 1fr;
   }

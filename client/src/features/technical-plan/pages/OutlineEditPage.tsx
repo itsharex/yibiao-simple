@@ -100,6 +100,7 @@ function OutlineEditPage({
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [startingOutline, setStartingOutline] = useState(false);
+  const [progressCollapsed, setProgressCollapsed] = useState(false);
   const [localStartAt, setLocalStartAt] = useState<number | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
   const logListRef = useRef<HTMLDivElement | null>(null);
@@ -350,24 +351,29 @@ function OutlineEditPage({
             <strong>生成过程</strong>
             <span>{statusText}</span>
           </div>
-          <div className="outline-progress-log" ref={logListRef}>
-            <div className={`outline-ai-status${generating ? ' is-running' : ''}${taskFailed ? ' is-error' : ''}`}>
-              <div className="outline-ai-status-row">
-                <span className="outline-ai-pulse" aria-hidden="true" />
-                <strong>{aiStatusTitle}</strong>
-                <em>{progress}%</em>
-              </div>
-              <div className="outline-ai-progress" aria-label={`目录生成进度 ${progress}%`}>
-                <span style={{ width: `${progress}%` }} />
-              </div>
-              <p>{statusMessage}</p>
-              {(elapsedText || staleText) && (
-                <div className="outline-ai-meta">
-                  {elapsedText && <span>{elapsedText}</span>}
-                  {staleText && <span>{staleText}</span>}
+          <div className={`content-outline-stats outline-progress-summary${progressCollapsed ? ' is-collapsed' : ''}`}>
+            <button type="button" onClick={() => setProgressCollapsed((prev) => !prev)} aria-expanded={!progressCollapsed}>
+              <span>生成进度</span>
+              <strong>{progress}%</strong>
+              <em>{progressCollapsed ? '展开' : '折叠'}</em>
+            </button>
+            {!progressCollapsed && (
+              <div className="content-outline-stats-body">
+                <div className="content-generation-progress-track" aria-label={`目录生成进度 ${progress}%`}>
+                  <span style={{ width: `${progress}%` }} />
                 </div>
-              )}
-            </div>
+                <p>{statusMessage}</p>
+                {(elapsedText || staleText) && (
+                  <div className="outline-progress-meta">
+                    {elapsedText && <span>{elapsedText}</span>}
+                    {staleText && <span>{staleText}</span>}
+                  </div>
+                )}
+                {taskFailed && <small>{task?.error || latestLog || '目录生成失败'}</small>}
+              </div>
+            )}
+          </div>
+          <div className="outline-progress-log" ref={logListRef}>
             {progressLogs.length ? progressLogs.map((item, index) => (
               <p className={index === progressLogs.length - 1 ? 'is-latest' : ''} key={`${item}-${index}`}>{item}</p>
             )) : <p>等待生成任务启动。</p>}
