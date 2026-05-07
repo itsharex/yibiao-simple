@@ -1,5 +1,6 @@
 import * as Tooltip from '@radix-ui/react-tooltip';
-import type { ReactNode } from 'react';
+import { useRef, useState } from 'react';
+import type { PointerEvent, ReactNode } from 'react';
 
 export type FloatingToolbarActionVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -24,14 +25,100 @@ interface FloatingToolbarProps {
 }
 
 function FloatingToolbar({ groups, label = '页面工具条' }: FloatingToolbarProps) {
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef({ startX: 0, startY: 0, left: 0, top: 0 });
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
   const visibleGroups = groups.filter((group) => group.actions.length > 0);
 
   if (visibleGroups.length === 0) {
     return null;
   }
 
+  const clampPosition = (left: number, top: number) => {
+    const toolbar = toolbarRef.current;
+    const parent = toolbar?.offsetParent as HTMLElement | null;
+    const parentRect = parent?.getBoundingClientRect();
+    const toolbarRect = toolbar?.getBoundingClientRect();
+
+    if (!parentRect || !toolbarRect) {
+      return { left, top };
+    }
+
+    return {
+      left: Math.min(Math.max(12, left), Math.max(12, parentRect.width - toolbarRect.width - 12)),
+      top: Math.min(Math.max(12, top), Math.max(12, parentRect.height - toolbarRect.height - 12)),
+    };
+  };
+
+  const startDrag = (event: PointerEvent<HTMLButtonElement>) => {
+    const toolbar = toolbarRef.current;
+    const parent = toolbar?.offsetParent as HTMLElement | null;
+
+    if (!toolbar || !parent) {
+      return;
+    }
+
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    const currentPosition = position || {
+      left: toolbarRect.left - parentRect.left,
+      top: toolbarRect.top - parentRect.top,
+    };
+
+    dragStateRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      ...currentPosition,
+    };
+    setPosition(clampPosition(currentPosition.left, currentPosition.top));
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const drag = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!dragging) {
+      return;
+    }
+
+    const nextLeft = dragStateRef.current.left + event.clientX - dragStateRef.current.startX;
+    const nextTop = dragStateRef.current.top + event.clientY - dragStateRef.current.startY;
+    setPosition(clampPosition(nextLeft, nextTop));
+  };
+
+  const stopDrag = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!dragging) {
+      return;
+    }
+
+    setDragging(false);
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  const resetPosition = () => {
+    setPosition(null);
+  };
+
   return (
-    <div className="floating-toolbar" role="toolbar" aria-label={label}>
+    <div
+      className={`floating-toolbar${dragging ? ' is-dragging' : ''}`}
+      role="toolbar"
+      aria-label={label}
+      ref={toolbarRef}
+      style={position ? { left: position.left, top: position.top, right: 'auto', bottom: 'auto' } : undefined}
+    >
+      <button
+        type="button"
+        className="floating-toolbar-drag-handle"
+        aria-label="拖动工具条"
+        onPointerDown={startDrag}
+        onPointerMove={drag}
+        onPointerUp={stopDrag}
+        onPointerCancel={stopDrag}
+        onDoubleClick={resetPosition}
+      >
+        <ToolbarDragIcon />
+      </button>
       {visibleGroups.map((group, groupIndex) => (
         <div className="floating-toolbar-group" key={group.id}>
           {group.actions.map((action) => (
@@ -41,6 +128,19 @@ function FloatingToolbar({ groups, label = '页面工具条' }: FloatingToolbarP
         </div>
       ))}
     </div>
+  );
+}
+
+function ToolbarDragIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="8" cy="7" r="1.35" fill="currentColor" />
+      <circle cx="16" cy="7" r="1.35" fill="currentColor" />
+      <circle cx="8" cy="12" r="1.35" fill="currentColor" />
+      <circle cx="16" cy="12" r="1.35" fill="currentColor" />
+      <circle cx="8" cy="17" r="1.35" fill="currentColor" />
+      <circle cx="16" cy="17" r="1.35" fill="currentColor" />
+    </svg>
   );
 }
 

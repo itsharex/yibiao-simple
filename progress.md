@@ -18,3 +18,5 @@
 - Step04 正文生成与 Word 导出已完成集成：模块加载验证、Word buffer 生成、假 AI 正文任务流程和 `npm run build` 均通过；构建仍有既有 chunk 体积警告。
 - 已核对并修复 Step04 代码评审问题：目录变更时清空正文生成缓存和 outline 节点旧 content；正文 Markdown 渲染移除 `rehypeRaw`，避免模型输出 HTML 被渲染成 DOM；任务模块加载和 `npm run build` 通过。
 - 已给正文生成结果增加开头重复章节标题过滤：在 Main 侧流式结果写入工作区前清理独立标题行，覆盖编号标题、Markdown 标题、加粗标题和中文序号标题；针对性用例、假 AI 任务和 `npm run build` 通过。
+- 开始 toolbar 拖动与页面内部滚动优化：已进入文件型计划，目标是让底部悬浮工具条可通过手柄拖动，并消除页面全局滚动条。
+- 已完成 toolbar 拖动与页面内部滚动优化：`FloatingToolbar` 增加拖动手柄和边界约束；全局布局改为 `100vh` 内部滚动；设置页拆成内部滚动层和悬浮工具条层；移除 toolbar 底部预留空间；`client/开发说明.md` 已补充规则；`npm run build` 和 `git diff --check` 通过。

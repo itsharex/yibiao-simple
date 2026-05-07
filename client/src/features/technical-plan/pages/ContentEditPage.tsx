@@ -1,3 +1,5 @@
+import * as Dialog from '@radix-ui/react-dialog';
+import * as Popover from '@radix-ui/react-popover';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -90,6 +92,10 @@ function ContentEditPage({ outlineData, projectOverview, task, sections, onConte
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [draftContent, setDraftContent] = useState('');
+  const [confirmRegenerateItem, setConfirmRegenerateItem] = useState<OutlineItem | null>(null);
+  const [requirementItem, setRequirementItem] = useState<OutlineItem | null>(null);
+  const [regenerateRequirement, setRegenerateRequirement] = useState('');
+  const [statsCollapsed, setStatsCollapsed] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const firstLeafId = leaves[0]?.id || '';
   const selectedItem = outlineData?.outline && selectedItemId ? findItem(outlineData.outline, selectedItemId) : null;
@@ -139,6 +145,28 @@ function ContentEditPage({ outlineData, projectOverview, task, sections, onConte
       showToast(regenerate ? '正文重新生成任务已在后台启动' : '正文生成任务已在后台启动', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : '启动正文生成任务失败', 'error');
+    }
+  };
+
+  const startSectionRegeneration = async () => {
+    if (!outlineData?.outline?.length || !requirementItem) {
+      return;
+    }
+
+    try {
+      await window.yibiao?.tasks.startContentGeneration({
+        outlineData,
+        projectOverview: outlineData.project_overview || projectOverview,
+        regenerate: true,
+        targetItemId: requirementItem.id,
+        requirement: regenerateRequirement,
+      });
+      setSelectedItemId(requirementItem.id);
+      setRequirementItem(null);
+      setRegenerateRequirement('');
+      showToast('小节重新生成任务已在后台启动', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '启动小节重新生成失败', 'error');
     }
   };
 
@@ -217,7 +245,43 @@ function ContentEditPage({ outlineData, projectOverview, task, sections, onConte
             <strong>{item.id} {item.title}</strong>
             <small>{isLeaf ? `${statusLabels[status]} · ${words} 字` : `${statusLabels[status]} · ${leafCount} 个小节 · ${words} 字`}</small>
           </span>
-          <em>{statusLabels[status]}</em>
+          {isLeaf && status === 'success' ? (
+            <Popover.Root
+              open={confirmRegenerateItem?.id === item.id}
+              onOpenChange={(open) => setConfirmRegenerateItem(open ? item : null)}
+            >
+              <Popover.Trigger asChild>
+                <em
+                  className="is-clickable"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
+                >{statusLabels[status]}</em>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content className="content-regenerate-popover" side="top" align="end" sideOffset={8}>
+                  <strong>重新生成此小节？</strong>
+                  <span>将覆盖当前正文内容。</span>
+                  <div>
+                    <button
+                      type="button"
+                      className="primary-action"
+                      disabled={running}
+                      onClick={() => {
+                        setRequirementItem(item);
+                        setRegenerateRequirement('');
+                        setConfirmRegenerateItem(null);
+                      }}
+                    >是</button>
+                    <Popover.Close className="secondary-action" type="button">否</Popover.Close>
+                  </div>
+                  <Popover.Arrow className="content-regenerate-popover-arrow" />
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          ) : (
+            <em>{statusLabels[status]}</em>
+          )}
         </button>
         {item.children?.length ? renderTree(item.children, level + 1) : null}
       </div>
@@ -253,22 +317,27 @@ function ContentEditPage({ outlineData, projectOverview, task, sections, onConte
         </button>
       </section>
 
-      <section className="content-generation-progress-card">
-        <div className="analysis-result-head">
-          <strong>生成统计</strong>
-          <span>{completedCount}/{leaves.length} 小节{failedCount ? `，失败 ${failedCount} 个` : ''}</span>
-        </div>
-        <div className="content-generation-progress-track" aria-label={`正文生成进度 ${progress}%`}>
-          <span style={{ width: `${progress}%` }} />
-        </div>
-        <p>{running ? task?.logs?.[task.logs.length - 1] || '正文生成任务正在运行。' : completedCount ? '已生成的正文会自动写入当前目录结构，可直接导出 Word。' : '点击生成正文后，左侧目录树会实时显示每个小节的生成状态。'}</p>
-      </section>
-
       <section className="content-generation-workspace">
         <aside className="content-outline-panel">
           <div className="analysis-result-head">
-            <strong>目录树</strong>
+            <strong>标书目录</strong>
             <span>{leaves.length} 个小节</span>
+          </div>
+          <div className={`content-outline-stats${statsCollapsed ? ' is-collapsed' : ''}`}>
+            <button type="button" onClick={() => setStatsCollapsed((prev) => !prev)} aria-expanded={!statsCollapsed}>
+              <span>生成统计</span>
+              <strong>{completedCount}/{leaves.length}</strong>
+              <em>{statsCollapsed ? '展开' : '折叠'}</em>
+            </button>
+            {!statsCollapsed && (
+              <div className="content-outline-stats-body">
+                <div className="content-generation-progress-track" aria-label={`正文生成进度 ${progress}%`}>
+                  <span style={{ width: `${progress}%` }} />
+                </div>
+                <p>{running ? task?.logs?.[task.logs.length - 1] || '正文生成任务正在运行。' : completedCount ? `已生成 ${completedCount} 个小节，共 ${totalWords} 字。` : '点击生成正文后，目录会实时显示每个小节状态。'}</p>
+                {failedCount > 0 && <small>失败 {failedCount} 个小节</small>}
+              </div>
+            )}
           </div>
           <div className="content-outline-list">
             {renderTree(outlineData.outline)}
@@ -345,6 +414,36 @@ function ContentEditPage({ outlineData, projectOverview, task, sections, onConte
           )}
         </article>
       </section>
+
+      <Dialog.Root
+        open={Boolean(requirementItem)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRequirementItem(null);
+            setRegenerateRequirement('');
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="content-regenerate-modal" />
+          <Dialog.Content className="content-regenerate-card">
+            <div className="content-regenerate-card-head">
+              <span className="section-kicker">重新生成</span>
+              <Dialog.Title>{requirementItem?.id} {requirementItem?.title}</Dialog.Title>
+              <Dialog.Description>输入本次重新生成的具体要求，AI 会只覆盖当前小节正文。</Dialog.Description>
+            </div>
+            <textarea
+              value={regenerateRequirement}
+              onChange={(event) => setRegenerateRequirement(event.target.value)}
+              placeholder="例如：强化实施步骤，减少背景描述，突出设备配置与运维响应。"
+            />
+            <div className="content-regenerate-actions">
+              <Dialog.Close className="secondary-action" type="button">取消</Dialog.Close>
+              <button type="button" className="primary-action" onClick={startSectionRegeneration} disabled={running}>开始重新生成</button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

@@ -358,20 +358,21 @@ function SettingsPage() {
 
   return (
     <div className="settings-page">
-      <div className="settings-tab-shell" role="tablist" aria-label="设置分类">
-        {settingsTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={`settings-tab ${activeTab === tab.id ? 'is-active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <div className="settings-page-scroll">
+        <div className="settings-tab-shell" role="tablist" aria-label="设置分类">
+          {settingsTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`settings-tab ${activeTab === tab.id ? 'is-active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
       {activeTab === 'general' && (
         <section className="settings-page-section">
@@ -724,6 +725,7 @@ function SettingsPage() {
           </div>
         </section>
       )}
+      </div>
       <FloatingToolbar groups={settingsToolbarGroups} label="设置保存工具条" />
     </div>
   );

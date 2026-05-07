@@ -1,4 +1,4 @@
-function buildChapterContentMessages({ chapter, parentChapters, siblingChapters, projectOverview }) {
+function buildChapterContentMessages({ chapter, parentChapters, siblingChapters, projectOverview, regenerateRequirement }) {
   const chapterId = chapter.id || 'unknown';
   const chapterTitle = chapter.title || '未命名章节';
   const chapterDescription = chapter.description || '';
@@ -40,6 +40,13 @@ function buildChapterContentMessages({ chapter, parentChapters, siblingChapters,
     if (siblingLines.length > 1) {
       messages.push({ role: 'user', content: siblingLines.join('\n') });
     }
+  }
+
+  if (String(regenerateRequirement || '').trim()) {
+    messages.push({
+      role: 'user',
+      content: `用户对本次重新生成的额外要求：\n${regenerateRequirement}`,
+    });
   }
 
   messages.push({
@@ -170,6 +177,14 @@ function progressFor(leaves, sections) {
   return Math.round((done / leaves.length) * 100);
 }
 
+function taskStatusFor(leaves, sections) {
+  if (leaves.some(({ item }) => sections[item.id]?.status === 'error')) {
+    return 'error';
+  }
+
+  return 'success';
+}
+
 function now() {
   return new Date().toISOString();
 }
@@ -204,14 +219,25 @@ async function runContentGenerationTask({ aiService, workspaceStore, updateTask,
 
   const projectOverview = payload.projectOverview || outlineData.project_overview || storedPlan.projectOverview || '';
   const regenerate = Boolean(payload.regenerate);
+  const targetItemId = String(payload.targetItemId || '').trim();
+  const regenerateRequirement = String(payload.requirement || '').trim();
   const concurrency = Math.max(1, Math.min(Number(payload.concurrency) || 5, 8));
   let sections = createInitialSections(leaves, storedPlan.contentGenerationSections);
-  const tasksToRun = leaves.filter(({ item }) => {
+  let tasksToRun = leaves.filter(({ item }) => {
     const section = sections[item.id];
     const content = section?.content || item.content || '';
     return regenerate || section?.status === 'error' || !String(content).trim();
   });
+  if (targetItemId) {
+    tasksToRun = leaves.filter(({ item }) => item.id === targetItemId);
+    if (!tasksToRun.length) {
+      throw new Error('未找到要重新生成的正文小节');
+    }
+  }
   let logs = [`准备生成正文，共 ${leaves.length} 个小节。`];
+  if (targetItemId) {
+    logs = [`准备重新生成正文小节：${targetItemId}。`];
+  }
 
   let technicalPlan = workspaceStore.updateTechnicalPlan({
     contentGenerationSections: sections,
@@ -247,15 +273,22 @@ async function runContentGenerationTask({ aiService, workspaceStore, updateTask,
 
   async function runOne(context) {
     const { item, parentChapters, siblingChapters } = context;
-    let rawContent = regenerate ? '' : sections[item.id]?.content || item.content || '';
+    const previousSection = sections[item.id] || {};
+    const previousContent = previousSection.content || item.content || '';
+    const isSingleSectionRegeneration = Boolean(targetItemId);
+    let rawContent = regenerate ? '' : previousContent;
     let content = stripRepeatedChapterTitle(rawContent, item);
     logs = [...logs, `开始生成：${item.id} ${item.title || '未命名章节'}`];
-    saveSection(item, { status: 'running', content, error: undefined }, content);
+    saveSection(item, {
+      status: 'running',
+      content: isSingleSectionRegeneration ? previousContent : content,
+      error: undefined,
+    }, isSingleSectionRegeneration ? previousContent : content);
     updateTask({ status: 'running', progress: progressFor(leaves, sections), logs }, workspaceStore.loadTechnicalPlan());
 
     try {
       await aiService.streamChat({
-        messages: buildChapterContentMessages({ chapter: item, parentChapters, siblingChapters, projectOverview }),
+        messages: buildChapterContentMessages({ chapter: item, parentChapters, siblingChapters, projectOverview, regenerateRequirement }),
         temperature: 0.7,
       }, (event) => {
         if (event.type !== 'chunk' || !event.chunk) {
@@ -263,7 +296,9 @@ async function runContentGenerationTask({ aiService, workspaceStore, updateTask,
         }
         rawContent += event.chunk;
         content = stripRepeatedChapterTitle(rawContent, item);
-        saveSection(item, { status: 'running', content, error: undefined }, content);
+        if (!isSingleSectionRegeneration) {
+          saveSection(item, { status: 'running', content, error: undefined }, content);
+        }
       });
 
       content = stripRepeatedChapterTitle(rawContent, item);
@@ -272,8 +307,12 @@ async function runContentGenerationTask({ aiService, workspaceStore, updateTask,
       updateTask({ status: 'running', progress: progressFor(leaves, sections), logs }, workspaceStore.loadTechnicalPlan());
     } catch (error) {
       const message = error.message || '正文生成失败';
-      logs = [...logs, `生成失败：${item.id} ${item.title || '未命名章节'}，${message}`];
-      saveSection(item, { status: 'error', content, error: message }, content);
+      logs = [...logs, `生成失败：${item.id} ${item.title || '未命名章节'}，${message}${isSingleSectionRegeneration ? '。已保留原正文。' : ''}`];
+      saveSection(item, {
+        status: 'error',
+        content: isSingleSectionRegeneration ? previousContent : content,
+        error: message,
+      }, isSingleSectionRegeneration ? previousContent : content);
       updateTask({ status: 'running', progress: progressFor(leaves, sections), logs }, workspaceStore.loadTechnicalPlan());
     }
   }
@@ -284,12 +323,16 @@ async function runContentGenerationTask({ aiService, workspaceStore, updateTask,
   }
 
   const failedCount = leaves.filter(({ item }) => sections[item.id]?.status === 'error').length;
-  logs = [...logs, failedCount ? `正文生成完成，${failedCount} 个小节失败。` : '正文生成完成。'];
+  const finalProgress = progressFor(leaves, sections);
+  const finalStatus = taskStatusFor(leaves, sections);
+  logs = [...logs, targetItemId
+    ? (failedCount ? `小节重新生成结束，当前整体进度 ${finalProgress}%，${failedCount} 个小节失败。` : `小节重新生成完成，当前整体进度 ${finalProgress}%。`)
+    : (failedCount ? `正文生成完成，${failedCount} 个小节失败。` : '正文生成完成。')];
   technicalPlan = workspaceStore.updateTechnicalPlan({
     contentGenerationSections: sections,
-    contentGenerationTask: updateTask({ status: 'success', progress: 100, logs }),
+    contentGenerationTask: updateTask({ status: finalStatus, progress: finalProgress, logs }),
   });
-  updateTask({ status: 'success', progress: 100, logs }, technicalPlan);
+  updateTask({ status: finalStatus, progress: finalProgress, logs }, technicalPlan);
 }
 
 module.exports = { runContentGenerationTask, stripRepeatedChapterTitle };

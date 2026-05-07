@@ -21,3 +21,5 @@
 - 旧 `frontend/src/pages/ContentEdit.tsx` 已实现可参考的叶子节点收集、父级章节查找、同级章节查找、5 并发生成和 Word 导出 payload 构造；但旧版依赖浏览器 SSE、`file-saver` 和本地草稿缓存，client 需要改为 Main 后台任务与工作区文件存储。
 - backend `/api/document/export-word` 的 payload 是 `{ project_name?, project_overview?, outline }`，其中 `outline` 节点包含 `id/title/description/children/content`；导出服务只对叶子节点渲染 `content`，Markdown 支持标题、列表、表格行、粗体/斜体/代码。
 - client 现有 `exportService.cjs` 是未实现占位；`preload.cjs` 已暴露 `window.yibiao.export.exportWord(payload)`，但 Main 侧还需要实现保存对话框和 docx 写入。
+- toolbar 与滚动优化调研：全局 `.content-shell` 原先使用底部大 padding 给 toolbar 预留空间，技术方案页通过 `:has(.technical-workbench)` 再额外处理；Step02 和设置页也有页面级底部 padding，会造成内容高度被压缩且不符合悬浮覆盖要求。
+- toolbar 与滚动优化调研：`FloatingToolbar` 同时可由 AppShell 和页面内部渲染；将 `.content-shell` 设为相对定位和隐藏溢出后，页面内部 toolbar 可以继续相对内容区域悬浮，页面内容则由各自根容器或工作区承担内部滚动。

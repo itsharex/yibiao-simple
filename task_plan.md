@@ -66,3 +66,23 @@
 | Error | Attempt | Resolution |
 | --- | --- | --- |
 | `contentGenerationTask.cjs` 中 `??` 和 `||` 混用导致 CJS 语法错误 | 第一次模块加载验证 | 将正文内容表达式拆成 `outlineContent` 中间变量 |
+
+## Current Task: Toolbar 拖动与页面内部滚动
+
+### Goal
+优化客户端全局底部 `FloatingToolbar`：增加按住拖动图标并支持拖动位置；排查页面布局，让内容占满窗口且消除全局滚动条，页面内部自行滚动；同步更新 `client/开发说明.md`。
+
+### Phases
+- [completed] 1. 梳理 AppShell、FloatingToolbar、全局 CSS 和主要页面布局。
+- [completed] 2. 实现 FloatingToolbar 拖动手柄、边界约束和基础位置恢复逻辑。
+- [completed] 3. 调整全局/页面布局为视口内高度和内部滚动，不再为 toolbar 预留空间。
+- [completed] 4. 更新开发说明中的布局与悬浮工具条约定。
+- [completed] 5. 运行构建验证，必要时补充静态检查。
+
+### Decisions
+- 工具条只通过前置拖动手柄移动，避免普通按钮点击和拖动冲突。
+- 工具条保持悬浮层，不要求页面底部额外留白。
+
+### Errors Encountered
+| Error | Attempt | Resolution |
+| --- | --- | --- |
