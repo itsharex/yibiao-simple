@@ -39,7 +39,6 @@
     ],
     "win": {
       "icon": "assets/icon.ico",
-      "signAndEditExecutable": false,
       "target": [
         {
           "target": "nsis",
@@ -61,6 +60,7 @@
       "perMachine": false
     },
     "mac": {
+      "icon": "assets/icon.icns",
       "identity": null,
       "category": "public.app-category.business",
       "target": [

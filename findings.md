@@ -32,3 +32,4 @@
 - GitHub Actions 的 `Re-run all jobs` 会重跑旧 run 当时的 workflow 文件和 tag 提交，不会使用 main 上后来修复的 workflow；要补发已有 tag，必须用 `workflow_dispatch` 从 main 手动运行并输入 tag。
 - v2.0.1 使用最新 workflow 手动发布后已上传 13 个 Release assets；旧 tag 的 artifactName 生成了空前缀文件名，后续版本已改为稳定 ASCII 前缀 `Yibiao-${version}-${os}-${arch}.${ext}`。
 - 下载的 `-2.0.1-win-x64.exe` SHA256 与 GitHub Release digest 一致，7-Zip 可识别为 NSIS/Electron 安装包；本地启动后进程保持运行且有响应窗口标题，说明安装器没有崩溃。用户看不到窗口更可能是安全扫描延迟、窗口在后方/任务栏，或旧产物以 `-` 开头导致识别体验差。
+- 打包后图标仍为 Electron 默认图标的根因：Windows 配置中此前为绕过本机 `winCodeSign` 解压权限问题关闭了 `win.signAndEditExecutable`，导致 electron-builder 不会把 `assets/icon.ico` 写入 exe 资源；macOS 则缺少 `assets/icon.icns`。已恢复 Windows exe 资源编辑，并在 macOS workflow 中用 `sips` + `iconutil` 从 `assets/icon_256.png` 生成 `assets/icon.icns` 后打包。
