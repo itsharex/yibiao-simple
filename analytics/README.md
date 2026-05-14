@@ -243,3 +243,26 @@ track('page_view', {
 | 查询为空 | 先上报测试数据，等待几十秒再查 |
 | 自定义域名未生效 | 检查对应 Worker 的 `Settings -> Domains & Routes` 和 `wrangler.jsonc` |
 | 绑定不存在 | 检查 API Worker 的 `Settings -> Bindings` 是否存在 `ANALYTICS` |
+
+## 五、自动部署触发规则
+
+Cloudflare Workers Builds 会在生产分支推送时触发构建。仓库里已将两个项目的 `deploy` 命令改为按目录校验：
+
+| Worker | 监听目录 |
+| --- | --- |
+| `agnet-analytics-api` | `analytics/worker` |
+| `agnet-analytics-dashboard` | `analytics/dashboard` |
+
+如果本次提交没有修改对应目录，构建会成功结束，但不会执行 `wrangler deploy`。
+
+如果需要强制重新部署，在 Cloudflare 的 Deploy command 临时改为：
+
+```text
+FORCE_DEPLOY=1 npm run deploy
+```
+
+重试成功后再改回：
+
+```text
+npm run deploy
+```
