@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>埋点统计看板</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --panel-soft: #f9fafb;
+      --text: #172033;
+      --muted: #667085;
+      --border: #e5e7eb;
+      --primary: #2563eb;
+      --primary-soft: #dbeafe;
+      --danger: #dc2626;
+      --green: #16a34a;
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, #e0ecff 0, transparent 34rem), var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 16px 48px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      letter-spacing: -0.03em;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      box-shadow: var(--shadow);
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--muted);
+    }
+
+    .dot.ok {
+      background: var(--green);
+    }
+
+    .dot.error {
+      background: var(--danger);
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(229, 231, 235, 0.95);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1.3fr 1.5fr 0.9fr 0.7fr auto;
+      gap: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input,
+    select,
+    button {
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid #d0d5dd;
+      font: inherit;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-soft);
+    }
+
+    button {
+      align-self: end;
+      padding: 0 18px;
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .hint {
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .error {
+      display: none;
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      color: #991b1b;
+      white-space: pre-wrap;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      padding: 16px;
+    }
+
+    .card span {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .card strong {
+      font-size: 28px;
+      letter-spacing: -0.04em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .section {
+      padding: 16px;
+    }
+
+    .section h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 9px 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      background: var(--panel-soft);
+      font-weight: 600;
+    }
+
+    code {
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: #eef2f7;
+      color: #344054;
+      word-break: break-all;
+    }
+
+    .empty {
+      padding: 24px;
+      border: 1px dashed #d0d5dd;
+      border-radius: 12px;
+      color: var(--muted);
+      text-align: center;
+      background: var(--panel-soft);
+    }
+
+    @media (max-width: 900px) {
+      .hero,
+      .controls,
+      .cards,
+      .grid {
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <div>
+        <h1>埋点统计看板</h1>
+        <p>Cloudflare Workers + Analytics Engine + Cloudflare Pages</p>
+      </div>
+      <div class="status">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">未连接</span>
+      </div>
+    </header>
+
+    <section class="panel controls">
+      <label>
+        API 地址
+        <input id="apiBase" value="https://analytics.agnet.top" />
+      </label>
+      <label>
+        ADMIN_TOKEN
+        <input id="adminToken" type="password" placeholder="输入 Worker Secret 中的 ADMIN_TOKEN" />
+      </label>
+      <label>
+        项目
+        <select id="projectName"><option value="">请先刷新</option></select>
+      </label>
+      <label>
+        时间范围
+        <select id="days">
+          <option value="7">最近 7 天</option>
+          <option value="30" selected>最近 30 天</option>
+          <option value="90">最近 90 天</option>
+        </select>
+      </label>
+      <button id="refreshButton">刷新</button>
+    </section>
+
+    <div class="panel hint">Token 只保存在当前浏览器 localStorage，不写入仓库，也不会提交到 Cloudflare Pages。</div>
+    <div id="errorBox" class="error"></div>
+
+    <section class="cards">
+      <div class="panel card"><span>打开量</span><strong id="totalOpen">0</strong></div>
+      <div class="panel card"><span>页面访问量</span><strong id="totalView">0</strong></div>
+      <div class="panel card"><span>页面数</span><strong id="totalPages">0</strong></div>
+      <div class="panel card"><span>版本数</span><strong id="totalVersions">0</strong></div>
+    </section>
+
+    <section class="grid">
+      <div class="panel section">
+        <h2>每日统计</h2>
+        <div id="dailyTable"></div>
+      </div>
+      <div class="panel section">
+        <h2>页面访问排行</h2>
+        <div id="pagesTable"></div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel section">
+        <h2>版本分布</h2>
+        <div id="versionsTable"></div>
+      </div>
+      <div class="panel section">
+        <h2>最近事件</h2>
+        <div id="latestTable"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      apiBase: $('apiBase'),
+      adminToken: $('adminToken'),
+      projectName: $('projectName'),
+      days: $('days'),
+      refreshButton: $('refreshButton'),
+      errorBox: $('errorBox'),
+      statusDot: $('statusDot'),
+      statusText: $('statusText'),
+      totalOpen: $('totalOpen'),
+      totalView: $('totalView'),
+      totalPages: $('totalPages'),
+      totalVersions: $('totalVersions'),
+      dailyTable: $('dailyTable'),
+      pagesTable: $('pagesTable'),
+      versionsTable: $('versionsTable'),
+      latestTable: $('latestTable'),
+    };
+
+    function normalizeApiBase(value) {
+      return String(value || '').trim().replace(/\/+$/, '');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString('zh-CN');
+    }
+
+    function setStatus(type, text) {
+      state.statusDot.className = type === 'ok' ? 'dot ok' : type === 'error' ? 'dot error' : 'dot';
+      state.statusText.textContent = text;
+    }
+
+    function saveSettings() {
+      localStorage.setItem('analytics_api_base', normalizeApiBase(state.apiBase.value));
+      localStorage.setItem('analytics_admin_token', state.adminToken.value.trim());
+      localStorage.setItem('analytics_project_name', state.projectName.value);
+      localStorage.setItem('analytics_days', state.days.value);
+    }
+
+    function loadSettings() {
+      state.apiBase.value = localStorage.getItem('analytics_api_base') || state.apiBase.value;
+      state.adminToken.value = localStorage.getItem('analytics_admin_token') || '';
+      state.days.value = localStorage.getItem('analytics_days') || '30';
+    }
+
+    function setError(message) {
+      state.errorBox.style.display = message ? 'block' : 'none';
+      state.errorBox.textContent = message || '';
+    }
+
+    async function requestJson(path) {
+      const apiBase = normalizeApiBase(state.apiBase.value);
+      const response = await fetch(`${apiBase}${path}`, {
+        headers: {
+          Authorization: `Bearer ${state.adminToken.value.trim()}`,
+        },
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data || data.code !== 0) {
+        throw new Error(data?.message || `请求失败：${response.status}`);
+      }
+      return data;
+    }
+
+    async function loadProjects() {
+      const previous = state.projectName.value || localStorage.getItem('analytics_project_name') || '';
+      const data = await requestJson('/api/projects');
+      state.projectName.innerHTML = '';
+
+      for (const project of data.projects || []) {
+        const option = document.createElement('option');
+        option.value = project;
+        option.textContent = project;
+        state.projectName.appendChild(option);
+      }
+
+      const hasPrevious = Array.from(state.projectName.options).some((option) => option.value === previous);
+      if (hasPrevious) state.projectName.value = previous;
+      if (!state.projectName.value && state.projectName.options.length > 0) {
+        state.projectName.value = state.projectName.options[0].value;
+      }
+    }
+
+    function normalizeDaily(rows) {
+      const map = new Map();
+      for (const row of rows || []) {
+        const date = String(row.date || '').slice(0, 10);
+        if (!date) continue;
+        if (!map.has(date)) map.set(date, { date, appOpen: 0, pageView: 0 });
+        const item = map.get(date);
+        if (row.event === 'app_open') item.appOpen += Number(row.count || 0);
+        if (row.event === 'page_view') item.pageView += Number(row.count || 0);
+      }
+      return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function renderTable(target, rows, columns, emptyText) {
+      if (!rows || rows.length === 0) {
+        target.innerHTML = `<div class="empty">${escapeHtml(emptyText)}</div>`;
+        return;
+      }
+
+      const head = columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('');
+      const body = rows.map((row) => {
+        const cells = columns.map((column) => {
+          const value = row[column.key] == null || row[column.key] === '' ? '-' : row[column.key];
+          const content = column.code ? `<code>${escapeHtml(value)}</code>` : escapeHtml(value);
+          return `<td>${content}</td>`;
+        }).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+
+      target.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    }
+
+    async function refresh() {
+      setError('');
+      setStatus('', '加载中');
+      state.refreshButton.disabled = true;
+
+      try {
+        if (!state.adminToken.value.trim()) {
+          throw new Error('请先输入 ADMIN_TOKEN');
+        }
+
+        await loadProjects();
+        if (!state.projectName.value) {
+          throw new Error('没有可用项目，请检查 Worker 的 ALLOWED_PROJECTS');
+        }
+
+        saveSettings();
+
+        const projectName = encodeURIComponent(state.projectName.value);
+        const days = encodeURIComponent(state.days.value);
+        const [summary, latest] = await Promise.all([
+          requestJson(`/api/summary?projectName=${projectName}&days=${days}`),
+          requestJson(`/api/latest?projectName=${projectName}&limit=50`),
+        ]);
+
+        const daily = normalizeDaily(summary.daily || []);
+        const pages = summary.pages || [];
+        const versions = summary.versions || [];
+        const totalOpen = daily.reduce((sum, row) => sum + row.appOpen, 0);
+        const totalView = daily.reduce((sum, row) => sum + row.pageView, 0);
+
+        state.totalOpen.textContent = formatNumber(totalOpen);
+        state.totalView.textContent = formatNumber(totalView);
+        state.totalPages.textContent = formatNumber(pages.length);
+        state.totalVersions.textContent = formatNumber(versions.length);
+
+        renderTable(state.dailyTable, daily, [
+          { key: 'date', label: '日期' },
+          { key: 'appOpen', label: '打开量' },
+          { key: 'pageView', label: '页面访问量' },
+        ], '暂无每日统计数据');
+
+        renderTable(state.pagesTable, pages, [
+          { key: 'page', label: '页面', code: true },
+          { key: 'count', label: '访问量' },
+        ], '暂无页面访问数据');
+
+        renderTable(state.versionsTable, versions, [
+          { key: 'version', label: '版本', code: true },
+          { key: 'count', label: '事件数' },
+        ], '暂无版本数据');
+
+        renderTable(state.latestTable, latest.events || [], [
+          { key: 'timestamp', label: '时间' },
+          { key: 'event', label: '事件', code: true },
+          { key: 'page', label: '页面', code: true },
+          { key: 'version', label: '版本', code: true },
+          { key: 'platform', label: '平台' },
+          { key: 'arch', label: '架构' },
+          { key: 'clientId', label: '客户端ID', code: true },
+        ], '暂无最近事件');
+
+        setStatus('ok', '已连接');
+      } catch (error) {
+        setStatus('error', '连接失败');
+        setError(error?.message || String(error));
+      } finally {
+        state.refreshButton.disabled = false;
+      }
+    }
+
+    state.refreshButton.addEventListener('click', refresh);
+    state.apiBase.addEventListener('change', saveSettings);
+    state.adminToken.addEventListener('change', saveSettings);
+    state.projectName.addEventListener('change', saveSettings);
+    state.days.addEventListener('change', saveSettings);
+
+    loadSettings();
+    if (state.adminToken.value.trim()) refresh();
+  </script>
+</body>
+</html>

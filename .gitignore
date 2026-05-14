@@ -4,6 +4,7 @@
 # 用户配置文件
 user_config.json
 config.json
+*.private.md
 
 # 上传文件目录
 uploads/
@@ -179,6 +180,7 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+.dev.vars
 .venv
 env/
 venv/
@@ -232,6 +234,9 @@ cython_debug/
 
 # Ruff stuff:
 .ruff_cache/
+
+# Cloudflare Wrangler local state
+.wrangler/
 
 # PyPI configuration file
 .pypirc

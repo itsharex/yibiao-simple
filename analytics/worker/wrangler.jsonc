@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agnet-analytics-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-05-14",
+  "workers_dev": true,
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS",
+      "dataset": "agnet_analytics"
+    }
+  ]
+}
