@@ -7,14 +7,16 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { useToast } from '../../../shared/ui';
 import type { ImageModelStatus, OutlineData, OutlineItem } from '../../../shared/types';
-import type { BackgroundTaskState, ContentGenerationSectionStatus, ContentGenerationSections, ContentImageStats } from '../types';
+import type { BackgroundTaskState, ContentGenerationOptions, ContentGenerationSectionStatus, ContentGenerationSections, ContentImageStats, ContentTableRequirement } from '../types';
 
 interface ContentEditPageProps {
   outlineData: OutlineData | null;
   projectOverview: string;
   referenceKnowledgeDocumentIds: string[];
   task?: BackgroundTaskState;
+  contentGenerationOptions?: ContentGenerationOptions;
   sections: ContentGenerationSections;
+  onContentGenerationOptionsChange: (options: ContentGenerationOptions) => Promise<void> | void;
   onContentSaved: (item: OutlineItem, content: string) => Promise<void> | void;
   onContentReset: () => Promise<OutlineData> | OutlineData;
 }
@@ -41,6 +43,46 @@ const imageModelStatusLabels: Record<ImageModelStatus, string> = {
   available: '可用',
   unavailable: '不可用',
 };
+
+const tableRequirementOptions: Array<{ value: ContentTableRequirement; label: string; description: string }> = [
+  { value: 'none', label: '不要', description: '不编排表格' },
+  { value: 'light', label: '少量', description: '不超过小节总数的 20%' },
+  { value: 'moderate', label: '适中', description: '不超过小节总数的 40%' },
+  { value: 'heavy', label: '大量', description: '保持现有编排逻辑' },
+];
+
+const defaultContentGenerationOptions: ContentGenerationOptions = {
+  useAiImages: false,
+  maxAiImages: 6,
+  useMermaidImages: true,
+  tableRequirement: 'heavy',
+};
+
+function isContentTableRequirement(value: unknown): value is ContentTableRequirement {
+  return tableRequirementOptions.some((option) => option.value === value);
+}
+
+function buildDefaultGenerationOptions(imageModelAvailable: boolean, leafCount: number): ContentGenerationOptions {
+  return {
+    ...defaultContentGenerationOptions,
+    useAiImages: imageModelAvailable,
+    maxAiImages: Math.min(defaultContentGenerationOptions.maxAiImages, Math.max(1, leafCount)),
+  };
+}
+
+function normalizeGenerationOptions(options: ContentGenerationOptions | undefined, imageModelAvailable: boolean, leafCount: number): ContentGenerationOptions {
+  const fallback = buildDefaultGenerationOptions(imageModelAvailable, leafCount);
+  const maxAiImagesLimit = Math.max(1, leafCount);
+  const requestedMaxAiImages = Number(options?.maxAiImages ?? fallback.maxAiImages);
+  const tableRequirement = options?.tableRequirement;
+
+  return {
+    useAiImages: Boolean(options?.useAiImages ?? fallback.useAiImages) && imageModelAvailable,
+    maxAiImages: Math.max(0, Math.min(Number.isFinite(requestedMaxAiImages) ? Math.round(requestedMaxAiImages) : fallback.maxAiImages, maxAiImagesLimit)),
+    useMermaidImages: Boolean(options?.useMermaidImages ?? fallback.useMermaidImages),
+    tableRequirement: isContentTableRequirement(tableRequirement) ? tableRequirement : fallback.tableRequirement,
+  };
+}
 
 const emptyImageStats: ContentImageStats = { planned: 0, attempted: 0, success: 0, failed: 0, skipped: 0 };
 
@@ -260,7 +302,17 @@ const MarkdownContent = memo(function MarkdownContent({ content, onPreviewImage 
   );
 });
 
-function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocumentIds, task, sections, onContentSaved, onContentReset }: ContentEditPageProps) {
+function ContentEditPage({
+  outlineData,
+  projectOverview,
+  referenceKnowledgeDocumentIds,
+  task,
+  contentGenerationOptions,
+  sections,
+  onContentGenerationOptionsChange,
+  onContentSaved,
+  onContentReset,
+}: ContentEditPageProps) {
   const { showToast } = useToast();
   const leaves = useMemo(() => outlineData?.outline ? collectLeafItems(outlineData.outline) : [], [outlineData]);
   const [selectedItemId, setSelectedItemId] = useState('');
@@ -274,7 +326,7 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
   const [developerMode, setDeveloperMode] = useState(false);
   const [imageModelStatus, setImageModelStatus] = useState<ImageModelStatus>('untested');
   const [generationDialogOpen, setGenerationDialogOpen] = useState(false);
-  const [generationOptions, setGenerationOptions] = useState({ useAiImages: false, maxAiImages: 6, useMermaidImages: true });
+  const [draftGenerationOptions, setDraftGenerationOptions] = useState<ContentGenerationOptions>(defaultContentGenerationOptions);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const firstLeafId = leaves[0]?.id || '';
@@ -360,14 +412,31 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
       const nextStatus = config?.image_model?.status || 'untested';
       const available = nextStatus === 'available';
       setImageModelStatus(nextStatus);
-      setGenerationOptions({
-        useAiImages: available,
-        maxAiImages: Math.min(6, Math.max(1, leaves.length)),
-        useMermaidImages: true,
-      });
+      setDraftGenerationOptions(normalizeGenerationOptions(contentGenerationOptions, available, leaves.length));
       setGenerationDialogOpen(true);
     } catch (error) {
       showToast(error instanceof Error ? error.message : '读取生成配置失败', 'error');
+    }
+  };
+
+  const saveDraftGenerationOptions = async (showSuccess: boolean, imageAvailable = imageModelAvailable) => {
+    const nextOptions = normalizeGenerationOptions(draftGenerationOptions, imageAvailable, leaves.length);
+    await onContentGenerationOptionsChange(nextOptions);
+    setDraftGenerationOptions(nextOptions);
+
+    if (showSuccess) {
+      setGenerationDialogOpen(false);
+      showToast('正文生成配置已保存', 'success');
+    }
+
+    return nextOptions;
+  };
+
+  const saveGenerationOptions = async () => {
+    try {
+      await saveDraftGenerationOptions(true);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '正文生成配置保存失败', 'error');
     }
   };
 
@@ -379,7 +448,11 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
 
     try {
       const config = await window.yibiao?.config.load();
-      const shouldRealTimeRender = config?.real_time_render !== false;
+      const nextImageModelStatus = config?.image_model?.status || 'untested';
+      const nextImageModelAvailable = nextImageModelStatus === 'available';
+      setImageModelStatus(nextImageModelStatus);
+      const savedGenerationOptions = await saveDraftGenerationOptions(false, nextImageModelAvailable);
+      const shouldRealTimeRender = config?.real_time_render === true;
       const regenerate = leaves.length > 0 && completedCount === leaves.length;
       const nextOutlineData = regenerate ? await onContentReset() : outlineData;
       if (regenerate) {
@@ -393,9 +466,10 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
         reference_knowledge_document_ids: referenceKnowledgeDocumentIds,
         regenerate,
         generationOptions: {
-          useAiImages: imageModelAvailable && generationOptions.useAiImages,
-          maxAiImages: generationOptions.maxAiImages,
-          useMermaidImages: generationOptions.useMermaidImages,
+          useAiImages: nextImageModelAvailable && savedGenerationOptions.useAiImages,
+          maxAiImages: savedGenerationOptions.maxAiImages,
+          useMermaidImages: savedGenerationOptions.useMermaidImages,
+          tableRequirement: savedGenerationOptions.tableRequirement,
         },
         real_time_render: shouldRealTimeRender,
       });
@@ -413,7 +487,11 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
 
     try {
       const config = await window.yibiao?.config.load();
-      const shouldRealTimeRender = config?.real_time_render !== false;
+      const nextImageModelStatus = config?.image_model?.status || 'untested';
+      const nextImageModelAvailable = nextImageModelStatus === 'available';
+      const savedGenerationOptions = normalizeGenerationOptions(contentGenerationOptions, nextImageModelAvailable, leaves.length);
+      setImageModelStatus(nextImageModelStatus);
+      const shouldRealTimeRender = config?.real_time_render === true;
       await window.yibiao?.tasks.startContentGeneration({
         outlineData,
         projectOverview: outlineData.project_overview || projectOverview,
@@ -421,6 +499,12 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
         regenerate: true,
         targetItemId: requirementItem.id,
         requirement: regenerateRequirement,
+        generationOptions: {
+          useAiImages: nextImageModelAvailable && savedGenerationOptions.useAiImages,
+          maxAiImages: savedGenerationOptions.maxAiImages,
+          useMermaidImages: savedGenerationOptions.useMermaidImages,
+          tableRequirement: savedGenerationOptions.tableRequirement,
+        },
         real_time_render: shouldRealTimeRender,
       });
       setSelectedItemId(requirementItem.id);
@@ -701,6 +785,18 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
             <div className="content-generation-config-list">
               <label className="content-generation-config-row">
                 <span>
+                  <strong>表格需求</strong>
+                  <small>{tableRequirementOptions.find((option) => option.value === draftGenerationOptions.tableRequirement)?.description}</small>
+                </span>
+                <select
+                  value={draftGenerationOptions.tableRequirement}
+                  onChange={(event) => setDraftGenerationOptions((prev) => ({ ...prev, tableRequirement: event.target.value as ContentTableRequirement }))}
+                >
+                  {tableRequirementOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <label className="content-generation-config-row">
+                <span>
                   <strong>使用 AI 生图</strong>
                   <small>当前生图模型状态：{imageModelStatusLabels[imageModelStatus]}{!imageModelAvailable ? '，请到设置页面配置生图模型' : ''}</small>
                 </span>
@@ -708,9 +804,9 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
                   <em className={`content-image-status is-${imageModelStatus}`}>{imageModelStatusLabels[imageModelStatus]}</em>
                   <Switch.Root
                     className="content-generation-switch"
-                    checked={generationOptions.useAiImages && imageModelAvailable}
+                    checked={draftGenerationOptions.useAiImages && imageModelAvailable}
                     disabled={!imageModelAvailable}
-                    onCheckedChange={(checked) => setGenerationOptions((prev) => ({ ...prev, useAiImages: checked }))}
+                    onCheckedChange={(checked) => setDraftGenerationOptions((prev) => ({ ...prev, useAiImages: checked }))}
                     aria-label="是否使用 AI 生图"
                   >
                     <Switch.Thumb className="content-generation-switch-thumb" />
@@ -726,9 +822,9 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
                   type="number"
                   min="0"
                   max={Math.max(1, leaves.length)}
-                  value={generationOptions.maxAiImages}
-                  disabled={!generationOptions.useAiImages || !imageModelAvailable}
-                  onChange={(event) => setGenerationOptions((prev) => ({
+                  value={draftGenerationOptions.maxAiImages}
+                  disabled={!draftGenerationOptions.useAiImages || !imageModelAvailable}
+                  onChange={(event) => setDraftGenerationOptions((prev) => ({
                     ...prev,
                     maxAiImages: Math.max(0, Math.min(Number(event.target.value) || 0, Math.max(1, leaves.length))),
                   }))}
@@ -741,19 +837,22 @@ function ContentEditPage({ outlineData, projectOverview, referenceKnowledgeDocum
                 </span>
                 <Switch.Root
                   className="content-generation-switch"
-                  checked={generationOptions.useMermaidImages}
-                  onCheckedChange={(checked) => setGenerationOptions((prev) => ({ ...prev, useMermaidImages: checked }))}
+                  checked={draftGenerationOptions.useMermaidImages}
+                  onCheckedChange={(checked) => setDraftGenerationOptions((prev) => ({ ...prev, useMermaidImages: checked }))}
                   aria-label="是否生成 Mermaid 图片"
                 >
                   <Switch.Thumb className="content-generation-switch-thumb" />
                 </Switch.Root>
               </label>
-              {generationOptions.useMermaidImages && (
+              {draftGenerationOptions.useMermaidImages && (
                 <p className="content-generation-config-note">当前 Mermaid 转图片使用的是 https://mermaid.ink/ 的免费接口，可能不稳定，导出 Word 后请仔细核对。</p>
               )}
             </div>
             <div className="content-regenerate-actions">
               <Dialog.Close className="secondary-action" type="button">取消</Dialog.Close>
+              <button type="button" className="secondary-action" onClick={saveGenerationOptions} disabled={running}>
+                保存配置
+              </button>
               <button type="button" className="primary-action" onClick={startGeneration} disabled={running}>开始生成</button>
             </div>
           </Dialog.Content>

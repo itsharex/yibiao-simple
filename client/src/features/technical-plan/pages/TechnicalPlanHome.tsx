@@ -7,7 +7,7 @@ import ContentEditPage from './ContentEditPage';
 import { useTechnicalPlanWorkflow } from '../hooks/useTechnicalPlanWorkflow';
 import { trackPageView } from '../../../shared/analytics/analytics';
 import { FloatingToolbar, ToolbarArrowLeftIcon, ToolbarArrowRightIcon, ToolbarDocumentIcon, useToast } from '../../../shared/ui';
-import type { BackgroundTaskState, TechnicalPlanStep } from '../types';
+import type { BackgroundTaskState, ContentGenerationOptions, TechnicalPlanStep } from '../types';
 import type { OutlineData, OutlineItem, WordExportProgressEvent } from '../../../shared/types';
 
 const steps: TechnicalPlanStep[] = [
@@ -40,6 +40,7 @@ const resetState = {
   bidAnalysisTask: undefined,
   outlineGenerationTask: undefined,
   contentGenerationTask: undefined,
+  contentGenerationOptions: undefined,
   contentGenerationSections: {},
   contentGenerationPlans: {},
   outlineData: null,
@@ -346,6 +347,11 @@ function TechnicalPlanHome() {
     return updatedOutlineData;
   };
 
+  const saveContentGenerationOptions = async (contentGenerationOptions: ContentGenerationOptions) => {
+    await window.yibiao?.workspace.updateTechnicalPlan({ contentGenerationOptions });
+    setState((prev) => ({ ...prev, contentGenerationOptions }));
+  };
+
   const generatedContentCount = state.outlineData?.outline
     ? collectLeafItems(state.outlineData.outline).filter((item) => item.content?.trim()).length
     : 0;
@@ -443,6 +449,7 @@ function TechnicalPlanHome() {
             bidAnalysisTask: undefined,
             outlineGenerationTask: undefined,
             contentGenerationTask: undefined,
+            contentGenerationOptions: undefined,
             contentGenerationSections: {},
             contentGenerationPlans: {},
             outlineData: null,
@@ -492,7 +499,9 @@ function TechnicalPlanHome() {
           projectOverview={state.projectOverview}
           referenceKnowledgeDocumentIds={state.referenceKnowledgeDocumentIds}
           task={state.contentGenerationTask}
+          contentGenerationOptions={state.contentGenerationOptions}
           sections={state.contentGenerationSections}
+          onContentGenerationOptionsChange={saveContentGenerationOptions}
           onContentSaved={saveChapterContent}
           onContentReset={resetContentGeneration}
         />

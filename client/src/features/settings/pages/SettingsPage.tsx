@@ -151,7 +151,7 @@ const initialState: SettingsPageState = {
   },
   general: {
     developer_mode: false,
-    real_time_render: true,
+    real_time_render: false,
   },
 };
 
@@ -221,7 +221,7 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
         fileParser: config.file_parser,
         general: {
           developer_mode: Boolean(config.developer_mode),
-          real_time_render: config.real_time_render !== false,
+          real_time_render: config.real_time_render === true,
         },
       }));
       setSavedConfig(config);

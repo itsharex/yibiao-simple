@@ -2131,11 +2131,13 @@ button {
   transform: translateX(21px);
 }
 
-.content-generation-config-row input[type="number"] {
+.content-generation-config-row input[type="number"],
+.content-generation-config-row select {
   width: 110px;
   padding: 10px 12px;
   border: 1px solid var(--yb-border);
   border-radius: 14px;
+  background: #ffffff;
 }
 
 .content-generation-config-note {
