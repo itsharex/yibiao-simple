@@ -91,11 +91,11 @@ Download the latest release from [GitHub Releases](https://github.com/yibiaoai/y
 
 ### 🎬 Usage Demo
 
-<video src="./screenshots/知识库+正文生成.mp4" controls="controls" width="100%" poster="./screenshots/5.png">
-  Your browser does not support video playback. Please open screenshots/知识库+正文生成.mp4.
-</video>
+<a href="https://www.youtube.com/watch?v=9id3AJBQz8U">
+  <img src="https://img.youtube.com/vi/9id3AJBQz8U/maxresdefault.jpg" alt="Yibiao usage demo video" width="100%">
+</a>
 
-[Video not playing? Open the demo video](./screenshots/知识库+正文生成.mp4)
+[Watch the usage demo on YouTube](https://www.youtube.com/watch?v=9id3AJBQz8U)
 
 ## 🛠️ Technical Architecture
 

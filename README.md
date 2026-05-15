@@ -95,11 +95,11 @@
 
 ### 🎬 使用方式
 
-<video src="./screenshots/知识库+正文生成.mp4" controls="controls" width="100%" poster="./screenshots/5.png">
-  您的浏览器不支持视频播放，请查看 screenshots/知识库+正文生成.mp4。
-</video>
+<a href="https://www.bilibili.com/video/BV1sC5i6SE74">
+  <img src="./screenshots/5.png" alt="易标使用演示视频" width="100%">
+</a>
 
-[无法播放？点击查看演示视频](./screenshots/知识库+正文生成.mp4)
+[点击前往 Bilibili 观看使用演示视频](https://www.bilibili.com/video/BV1sC5i6SE74)
 
 ## 🛠️ 技术架构
 
