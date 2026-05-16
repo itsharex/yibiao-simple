@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { registerIpcHandlers } = require('./ipc/index.cjs');
-const { setupAutoUpdate, triggerUpdateDownload, quitAndInstall } = require('./services/updateService.cjs');
+const { setupAutoUpdate, checkAndDownloadUpdate, triggerUpdateDownload, quitAndInstall } = require('./services/updateService.cjs');
 const { getGeneratedImagesDir } = require('./utils/paths.cjs');
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
@@ -82,7 +82,7 @@ app.whenReady().then(() => {
   nativeTheme.themeSource = 'light';
   registerAssetProtocol();
   const mainWindow = createMainWindow();
-  registerIpcHandlers({ app, mainWindow, triggerUpdateDownload, quitAndInstall });
+  registerIpcHandlers({ app, mainWindow, checkAndDownloadUpdate, triggerUpdateDownload, quitAndInstall });
   setupAutoUpdate({ app, mainWindow });
 
   app.on('activate', () => {

@@ -1,23 +1,13 @@
 import { useEffect, useState } from 'react';
 import { trackConfigUsage } from '../../../shared/analytics/analytics';
 import { FloatingToolbar, useToast } from '../../../shared/ui';
+import { showUpdateReadyToast } from '../../../shared/updateToast';
 import type { FloatingToolbarGroup } from '../../../shared/ui';
-import type { ClientConfig, FileParserProvider, ImageModelConfig, ImageModelProvider, ImageModelStatus, LatestReleaseInfo } from '../../../shared/types';
+import type { ClientConfig, FileParserProvider, ImageModelConfig, ImageModelProvider, ImageModelStatus } from '../../../shared/types';
 import type { SettingsPageState } from '../types';
 
 type SettingsTab = 'general' | 'text-model' | 'image-model' | 'file-parser' | 'about';
-
-function compareVersions(a: string, b: string): number {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const na = pa[i] || 0;
-    const nb = pb[i] || 0;
-    if (na > nb) return 1;
-    if (na < nb) return -1;
-  }
-  return 0;
-}
+type UpdateStatus = 'idle' | 'checking' | 'downloading' | 'downloaded' | 'error' | 'disabled';
 
 const settingsTabs: Array<{ id: SettingsTab; label: string }> = [
   { id: 'general', label: '通用' },
@@ -171,16 +161,15 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
   const [testingImageModel, setTestingImageModel] = useState(false);
   const [imageTestPreview, setImageTestPreview] = useState<{ src: string; title: string } | null>(null);
   const [appVersion, setAppVersion] = useState('');
-  const [latestRelease, setLatestRelease] = useState<LatestReleaseInfo | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'downloading' | 'downloaded' | 'error'>('idle');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
   const [updatePercent, setUpdatePercent] = useState(0);
+  const [updateVersion, setUpdateVersion] = useState('');
   const [updateError, setUpdateError] = useState('');
   const { showToast } = useToast();
 
   useEffect(() => {
     void loadTextConfig();
     void window.yibiao?.getVersion().then(setAppVersion);
-    void window.yibiao?.getLatestVersion().then(setLatestRelease).catch(() => undefined);
 
     const unsubs: Array<() => void> = [];
     unsubs.push(
@@ -190,7 +179,10 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
       }) ?? (() => {})
     );
     unsubs.push(
-      window.yibiao?.onUpdateDownloaded(() => {
+      window.yibiao?.onUpdateDownloaded(({ version }) => {
+        if (version) {
+          setUpdateVersion(version);
+        }
         setUpdateStatus('downloaded');
       }) ?? (() => {})
     );
@@ -242,6 +234,52 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
     developer_mode: state.general.developer_mode,
     real_time_render: state.general.real_time_render,
   });
+
+  const checkForUpdates = async () => {
+    if (updateStatus === 'checking' || updateStatus === 'downloading') {
+      return;
+    }
+
+    try {
+      setUpdateStatus('checking');
+      setUpdatePercent(0);
+      setUpdateError('');
+      const result = await window.yibiao?.checkUpdate();
+      if (!result?.enabled) {
+        setUpdateStatus('disabled');
+        showToast('开发调试模式不执行自动更新', 'info');
+        return;
+      }
+      if (result.failed) {
+        const message = result.message || '检查更新失败';
+        setUpdateStatus('error');
+        setUpdateError(message);
+        showToast(message, 'error');
+        return;
+      }
+      if (!result.updateAvailable) {
+        setUpdateStatus('idle');
+        showToast('已是最新版本', 'success');
+        return;
+      }
+
+      const version = result.version || updateVersion;
+      setUpdateVersion(version);
+      if (result.downloaded) {
+        setUpdateStatus('downloaded');
+        showUpdateReadyToast(showToast, version);
+        return;
+      }
+
+      setUpdateStatus('idle');
+      showToast('发现新版本，但更新包尚未下载完成，请稍后重试', 'info');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '检查更新失败';
+      setUpdateStatus('error');
+      setUpdateError(message);
+      showToast(message, 'error');
+    }
+  };
 
   const updateImageModelConfig = (partial: Partial<ImageModelConfig>) => {
     setState((prev) => ({
@@ -510,6 +548,16 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
         },
       ]
     : [];
+
+  const updateBusy = updateStatus === 'checking' || updateStatus === 'downloading';
+  const updateStatusText = (() => {
+    if (updateStatus === 'checking') return '正在检查更新...';
+    if (updateStatus === 'downloading') return `正在下载 ${updatePercent}%`;
+    if (updateStatus === 'downloaded') return updateVersion ? `新版本 ${updateVersion} 已准备好` : '更新已准备好';
+    if (updateStatus === 'error') return `更新失败：${updateError || '未知错误'}`;
+    if (updateStatus === 'disabled') return '开发调试模式不执行自动更新';
+    return '启动后自动检查，每 30 分钟轮询';
+  })();
 
   return (
     <div className="settings-page">
@@ -887,34 +935,21 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
             <div><span>GitHub 仓库</span><a href="https://github.com/FB208/OpenBidKit_Yibiao" target="_blank" rel="noreferrer">FB208/OpenBidKit_Yibiao</a></div>
             <div>
               <span>自动更新</span>
-              <strong>
-                {latestRelease
-                  ? compareVersions(latestRelease.version, appVersion) > 0
-                    ? updateStatus === 'downloading'
-                      ? `正在下载 ${updatePercent}%`
-                      : updateStatus === 'downloaded'
-                        ? '下载完成，重启安装'
-                        : updateStatus === 'error'
-                          ? `更新失败：${updateError}`
-                          : `最新版本 ${latestRelease.version}`
-                    : '已是最新版本'
-                  : '检查中...'}
-              </strong>
-              {latestRelease && compareVersions(latestRelease.version, appVersion) > 0 && updateStatus !== 'downloading' && (
-                <button
-                  type="button"
-                  className="update-button"
-                  onClick={() => {
-                    if (updateStatus === 'downloaded') {
-                      void window.yibiao?.quitAndInstall();
-                    } else {
-                      void window.yibiao?.startUpdate();
-                    }
-                  }}
-                >
-                  {updateStatus === 'downloaded' ? '重启安装' : '立即更新'}
-                </button>
-              )}
+              <strong>{updateStatusText}</strong>
+              <button
+                type="button"
+                className="update-button"
+                disabled={updateBusy}
+                onClick={() => {
+                  if (updateStatus === 'downloaded') {
+                    void window.yibiao?.quitAndInstall();
+                    return;
+                  }
+                  void checkForUpdates();
+                }}
+              >
+                {updateStatus === 'downloaded' ? '安装并重启' : updateBusy ? '检查中...' : '检查更新'}
+              </button>
             </div>
             <div><span>运行模式</span><strong>独立 Electron 客户端</strong></div>
           </div>

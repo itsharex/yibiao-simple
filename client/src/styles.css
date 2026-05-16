@@ -3334,6 +3334,13 @@ button {
   backdrop-filter: blur(14px);
 }
 
+.app-toast.has-actions {
+  grid-template-areas:
+    'title close'
+    'description close'
+    'actions actions';
+}
+
 .app-toast[data-state='open'] {
   animation: toast-slide-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -3392,6 +3399,44 @@ button {
 .app-toast-close:hover {
   color: var(--yb-text);
   background: rgba(23, 32, 51, 0.06);
+}
+
+.app-toast-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-area: actions;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+.app-toast-action {
+  height: 32px;
+  padding: 0 12px;
+  color: var(--yb-text-soft);
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(23, 32, 51, 0.05);
+  border: 1px solid rgba(220, 223, 230, 0.9);
+  border-radius: 999px;
+}
+
+.app-toast-action:hover {
+  color: var(--yb-text);
+  background: rgba(33, 116, 253, 0.08);
+  border-color: rgba(33, 116, 253, 0.2);
+}
+
+.app-toast-action.is-primary {
+  color: #fff;
+  background: linear-gradient(135deg, #2174fd 0%, #4098fc 100%);
+  border-color: transparent;
+  box-shadow: 0 8px 18px rgba(33, 116, 253, 0.22);
+}
+
+.app-toast-action.is-primary:hover {
+  color: #fff;
+  background: linear-gradient(135deg, #1767ea 0%, #2d8cf6 100%);
 }
 
 .app-toast.is-success {

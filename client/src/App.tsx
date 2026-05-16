@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import AppRouter from './app/AppRouter';
+import UpdateNotifier from './app/UpdateNotifier';
 import { buildToolbarGroups } from './app/toolbarConfig';
 import AppShell from './components/AppShell';
 import { trackAppOpen, trackConfigUsage, trackPageView } from './shared/analytics/analytics';
@@ -33,14 +34,17 @@ function App() {
   }, [activeSection, developerMode]);
 
   return (
-    <AppShell
-      activeSection={activeSection}
-      developerMode={developerMode}
-      toolbar={<FloatingToolbar groups={toolbarGroups} />}
-      onSectionChange={setActiveSection}
-    >
-      <AppRouter activeSection={activeSection} onDeveloperModeChange={setDeveloperMode} />
-    </AppShell>
+    <>
+      <UpdateNotifier />
+      <AppShell
+        activeSection={activeSection}
+        developerMode={developerMode}
+        toolbar={<FloatingToolbar groups={toolbarGroups} />}
+        onSectionChange={setActiveSection}
+      >
+        <AppRouter activeSection={activeSection} onDeveloperModeChange={setDeveloperMode} />
+      </AppShell>
+    </>
   );
 }
 

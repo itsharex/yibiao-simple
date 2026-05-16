@@ -15,7 +15,7 @@ const { createKnowledgeBaseService } = require('../services/knowledgeBaseService
 const { createTaskService } = require('../services/taskService.cjs');
 const { createWorkspaceStore } = require('../services/workspaceStore.cjs');
 
-function registerIpcHandlers({ app, mainWindow, triggerUpdateDownload, quitAndInstall }) {
+function registerIpcHandlers({ app, mainWindow, checkAndDownloadUpdate, triggerUpdateDownload, quitAndInstall }) {
   const configStore = createConfigStore(app);
   const aiService = createAiService({ app, configStore });
   const fileService = createFileService({ configStore });
@@ -66,9 +66,27 @@ function registerIpcHandlers({ app, mainWindow, triggerUpdateDownload, quitAndIn
     quitAndInstall();
   });
 
+  ipcMain.handle('app:check-update', (event) => {
+    const webContents = event.sender;
+    return checkAndDownloadUpdate({
+      app,
+      mainWindow,
+      onProgress: (percent) => {
+        webContents.send('app:update-progress', { percent });
+      },
+      onDownloaded: (version) => {
+        webContents.send('app:update-downloaded', { version });
+      },
+      onError: (message) => {
+        webContents.send('app:update-error', { message });
+      },
+    });
+  });
+
   ipcMain.handle('app:start-update', (event) => {
     const webContents = event.sender;
-    triggerUpdateDownload({
+    return triggerUpdateDownload({
+      app,
       mainWindow,
       onProgress: (percent) => {
         webContents.send('app:update-progress', { percent });

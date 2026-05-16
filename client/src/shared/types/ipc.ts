@@ -32,12 +32,22 @@ export interface LatestReleaseInfo {
   html_url: string;
 }
 
+export interface UpdateCheckResult {
+  enabled: boolean;
+  updateAvailable: boolean;
+  version?: string;
+  downloaded?: boolean;
+  failed?: boolean;
+  message?: string;
+}
+
 export interface YibiaoBridge {
   appName: string;
   platform: string;
   getVersion: () => Promise<string>;
   getLatestVersion: () => Promise<LatestReleaseInfo>;
-  startUpdate: () => Promise<void>;
+  checkUpdate: () => Promise<UpdateCheckResult>;
+  startUpdate: () => Promise<UpdateCheckResult>;
   quitAndInstall: () => Promise<void>;
   onUpdateProgress: (callback: (event: { percent: number }) => void) => () => void;
   onUpdateDownloaded: (callback: (event: { version: string }) => void) => () => void;

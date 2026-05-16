@@ -7,6 +7,7 @@ const bridge = {
   platform: process.platform,
   getVersion: () => ipcRenderer.invoke('app:get-version'),
   getLatestVersion: () => ipcRenderer.invoke('app:get-latest-version'),
+  checkUpdate: () => ipcRenderer.invoke('app:check-update'),
   startUpdate: () => ipcRenderer.invoke('app:start-update'),
   quitAndInstall: () => ipcRenderer.invoke('app:quit-and-install'),
   onUpdateProgress: (callback) => {
