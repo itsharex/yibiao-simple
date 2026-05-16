@@ -42,6 +42,14 @@ async function parseLocalDocument(filePath) {
   return convertPathToMarkdown(filePath, { includeImages: false });
 }
 
+function formatImportError(error) {
+  const rawMessage = error instanceof Error ? error.message : String(error || '未知错误');
+  if (/Can't find end of central directory|is this a zip file/i.test(rawMessage)) {
+    return '文件解析失败：该文件不是有效的 DOCX 文档，请用 Word/WPS 另存为标准 DOCX 后重试';
+  }
+  return `文件解析失败：${rawMessage || '未知错误'}`;
+}
+
 async function parseWithMineruAgent(filePath) {
   const fileName = path.basename(filePath);
   const createResponse = await fetch('https://mineru.net/api/v1/agent/parse/file', {
@@ -248,7 +256,18 @@ function createFileService({ configStore } = {}) {
         return { success: false, message: `当前${parserLabels[provider] || '解析方式'}不支持该文件格式` };
       }
 
-      const fileContent = (await parseDocument(filePath, config)).trim();
+      let fileContent = '';
+      try {
+        fileContent = (await parseDocument(filePath, config)).trim();
+      } catch (error) {
+        return {
+          success: false,
+          message: formatImportError(error),
+          file_name: path.basename(filePath),
+          parser_provider: provider,
+          parser_label: parserLabels[provider] || '本地解析',
+        };
+      }
 
       if (!fileContent) {
         return { success: false, message: '未提取到有效 Markdown 内容，请检查文件内容' };

@@ -57,7 +57,8 @@ function DocumentAnalysisPage({
       const result = await window.yibiao?.file.importDocument();
 
       if (!result?.success || !result.file_content) {
-        showToast(result?.message || '未导入文件', 'info');
+        const message = result?.message || '未导入文件';
+        showToast(message, message === '已取消选择' ? 'info' : 'error');
         return;
       }
 

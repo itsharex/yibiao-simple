@@ -19,6 +19,9 @@ const MARKDOWN_SUFFIXES = new Set(['.md', '.markdown']);
 const DOCX_SUFFIXES = new Set(['.docx']);
 const PDF_SUFFIXES = new Set(['.pdf']);
 const LEGACY_WORD_SUFFIXES = new Set(['.doc', '.wps']);
+const PDF_HEADER = Buffer.from('%PDF-');
+const ZIP_LOCAL_FILE_HEADER = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+const OLE_COMPOUND_HEADER = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
 const MARKDOWN_IMAGE_PATTERN = /!\[(?<alt>[^\]]*)\]\((?<target><[^>]+>|[^)\s]+)(?<title>\s+"[^"]*")?\)/gi;
 const PDF_POINT_TOLERANCE = 2.5;
 const PDF_GRID_MIN_LINE_LENGTH = 12;
@@ -67,19 +70,40 @@ export async function detectFileFormat(inputPath) {
   const suffix = path.extname(inputPath).toLowerCase();
   const header = await readFileHeader(inputPath, 8);
 
+  if (isPdfHeader(header)) {
+    return 'pdf';
+  }
+  if (isZipHeader(header)) {
+    return 'docx';
+  }
+  if (isOleCompoundHeader(header)) {
+    return 'legacy_word';
+  }
   if (MARKDOWN_SUFFIXES.has(suffix)) {
     return 'markdown';
   }
-  if (PDF_SUFFIXES.has(suffix) || header.subarray(0, 5).toString() === '%PDF-') {
+  if (PDF_SUFFIXES.has(suffix)) {
     return 'pdf';
   }
-  if (DOCX_SUFFIXES.has(suffix) || header.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) {
+  if (DOCX_SUFFIXES.has(suffix)) {
     return 'docx';
   }
-  if (LEGACY_WORD_SUFFIXES.has(suffix) || header.equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]))) {
+  if (LEGACY_WORD_SUFFIXES.has(suffix)) {
     return 'legacy_word';
   }
   return 'unknown';
+}
+
+function isPdfHeader(header) {
+  return header.subarray(0, PDF_HEADER.length).equals(PDF_HEADER);
+}
+
+function isZipHeader(header) {
+  return header.subarray(0, ZIP_LOCAL_FILE_HEADER.length).equals(ZIP_LOCAL_FILE_HEADER);
+}
+
+function isOleCompoundHeader(header) {
+  return header.subarray(0, OLE_COMPOUND_HEADER.length).equals(OLE_COMPOUND_HEADER);
 }
 
 async function readFileHeader(inputPath, bytes) {
@@ -694,7 +718,7 @@ async function convertLegacyWordFile(inputPath, includeImages) {
 
   const tempDir = await mkdtemp(path.join(os.tmpdir(), 'doc2md-node-'));
   try {
-    const legacyInput = path.join(tempDir, `${safeStem(inputPath)}${path.extname(inputPath).toLowerCase() || '.doc'}`);
+    const legacyInput = path.join(tempDir, `${safeStem(inputPath)}${await getLegacyConversionSuffix(inputPath)}`);
     await copyFile(inputPath, legacyInput);
     await runLibreOfficeConvert(soffice, legacyInput, tempDir);
     const files = await readdir(tempDir);
@@ -708,6 +732,15 @@ async function convertLegacyWordFile(inputPath, includeImages) {
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
+}
+
+async function getLegacyConversionSuffix(inputPath) {
+  const suffix = path.extname(inputPath).toLowerCase();
+  const header = await readFileHeader(inputPath, 8);
+  if (DOCX_SUFFIXES.has(suffix) && isOleCompoundHeader(header)) {
+    return '.doc';
+  }
+  return suffix || '.doc';
 }
 
 async function findLibreOfficeCommand() {
