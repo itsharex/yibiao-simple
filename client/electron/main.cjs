@@ -77,9 +77,15 @@ function isAllowedAppNavigation(value) {
   }
 }
 
-function openExternalUrl(value) {
+async function openExternalUrl(value) {
   const externalUrl = normalizeExternalUrl(value);
-  return externalUrl ? shell.openExternal(externalUrl) : Promise.resolve();
+  if (!externalUrl) return;
+  try {
+    await shell.openExternal(externalUrl);
+  } catch (error) {
+    const preview = externalUrl.length > 300 ? `${externalUrl.slice(0, 300)}...` : externalUrl;
+    console.warn('[electron] 打开外部链接失败', { url: preview, message: error.message || String(error) });
+  }
 }
 
 function createMainWindow() {

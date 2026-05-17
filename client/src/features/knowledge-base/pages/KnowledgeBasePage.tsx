@@ -1,8 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
+import type { Components } from 'react-markdown';
 import { MarkdownRenderer, useToast } from '../../../shared/ui';
 import type { KnowledgeAnalysisSnapshot, KnowledgeBaseIndex, KnowledgeDocument, KnowledgeItem } from '../types';
 
 const emptyIndex: KnowledgeBaseIndex = { folders: [], documents: [] };
+const emptyDocuments: KnowledgeDocument[] = [];
+const documentRenderBatchSize = 80;
+const knowledgeItemSourceComponents: Components = {
+  a({ children }) {
+    return <span className="knowledge-item-link-text">{children}</span>;
+  },
+  img({ node: _node, ...props }) {
+    return <img {...props} loading="lazy" decoding="async" />;
+  },
+};
 
 const statusLabels: Record<KnowledgeDocument['status'], string> = {
   pending: '等待处理',
@@ -26,8 +37,10 @@ type KnowledgeViewer = {
 function KnowledgeBasePage() {
   const [index, setIndex] = useState<KnowledgeBaseIndex>(emptyIndex);
   const [activeFolderId, setActiveFolderId] = useState('');
+  const [listLoading, setListLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [viewer, setViewer] = useState<KnowledgeViewer | null>(null);
+  const [viewerLoading, setViewerLoading] = useState(false);
   const [markdownPreview, setMarkdownPreview] = useState('');
   const [itemsPreview, setItemsPreview] = useState<KnowledgeItem[]>([]);
   const [analysisSnapshot, setAnalysisSnapshot] = useState<KnowledgeAnalysisSnapshot | null>(null);
@@ -37,18 +50,29 @@ function KnowledgeBasePage() {
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [visibleDocumentCount, setVisibleDocumentCount] = useState(documentRenderBatchSize);
   const autoMatchingIdsRef = useRef(new Set<string>());
+  const viewerRequestIdRef = useRef(0);
   const { showToast } = useToast();
 
   const activeFolder = index.folders.find((folder) => folder.id === activeFolderId) || index.folders[0];
-  const documents = useMemo(
-    () => index.documents.filter((document) => document.folder_id === activeFolder?.id),
-    [activeFolder?.id, index.documents]
-  );
+  const documentsByFolder = useMemo(() => {
+    const grouped = new Map<string, KnowledgeDocument[]>();
+    index.documents.forEach((document) => {
+      const folderDocuments = grouped.get(document.folder_id);
+      if (folderDocuments) {
+        folderDocuments.push(document);
+        return;
+      }
+      grouped.set(document.folder_id, [document]);
+    });
+    return grouped;
+  }, [index.documents]);
+  const documents = activeFolder ? documentsByFolder.get(activeFolder.id) || emptyDocuments : emptyDocuments;
+  const visibleDocuments = documents.slice(0, Math.min(visibleDocumentCount, documents.length));
 
   useEffect(() => {
-    void loadIndex();
-    void loadDeveloperMode();
+    void loadInitialData();
     window.addEventListener('focus', loadDeveloperMode);
     document.addEventListener('visibilitychange', loadDeveloperMode);
     const unsubscribe = window.yibiao?.knowledgeBase.onEvent(({ document }) => {
@@ -69,6 +93,20 @@ function KnowledgeBasePage() {
   }, []);
 
   useEffect(() => {
+    setVisibleDocumentCount(documentRenderBatchSize);
+  }, [activeFolder?.id, documents.length]);
+
+  useEffect(() => {
+    if (visibleDocumentCount >= documents.length) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      startTransition(() => {
+        setVisibleDocumentCount((count) => Math.min(count + documentRenderBatchSize, documents.length));
+      });
+    }, 24);
+    return () => window.clearTimeout(timeoutId);
+  }, [documents.length, visibleDocumentCount]);
+
+  useEffect(() => {
     if (developerMode) return;
     const pendingDocuments = index.documents.filter((document) => document.status === 'ready_for_matching' && !autoMatchingIdsRef.current.has(document.id));
     pendingDocuments.forEach((document) => {
@@ -79,12 +117,15 @@ function KnowledgeBasePage() {
 
   useEffect(() => {
     if (!developerMode && viewer?.mode === 'analysis') {
+      viewerRequestIdRef.current += 1;
       setViewer(null);
+      setViewerLoading(false);
+      setAnalysisSnapshot(null);
     }
   }, [developerMode, viewer?.mode]);
 
   useEffect(() => {
-    if (!activeFolderId && index.folders[0]) {
+    if ((!activeFolderId || !index.folders.some((folder) => folder.id === activeFolderId)) && index.folders[0]) {
       setActiveFolderId(index.folders[0].id);
     }
   }, [activeFolderId, index.folders]);
@@ -95,13 +136,24 @@ function KnowledgeBasePage() {
     }
   }, [viewer?.document.id, viewer?.document.status, viewer?.mode]);
 
-  const loadIndex = async () => {
+  const loadInitialData = async () => {
     try {
-      await loadDeveloperMode();
-      const data = await window.yibiao?.knowledgeBase.list();
-      if (data) setIndex(data);
+      setListLoading(true);
+      const [config, data] = await Promise.all([
+        window.yibiao?.config.load(),
+        window.yibiao?.knowledgeBase.list(),
+      ]);
+      setDeveloperMode(Boolean(config?.developer_mode));
+      if (data) {
+        setIndex(data);
+        setActiveFolderId((currentId) => (
+          data.folders.some((folder) => folder.id === currentId) ? currentId : data.folders[0]?.id || ''
+        ));
+      }
     } catch (error) {
       showToast(error instanceof Error ? error.message : '读取知识库失败', 'error');
+    } finally {
+      setListLoading(false);
     }
   };
 
@@ -191,7 +243,7 @@ function KnowledgeBasePage() {
   };
 
   const deleteFolder = async (folderId: string, folderName: string) => {
-    const count = index.documents.filter((document) => document.folder_id === folderId).length;
+    const count = documentsByFolder.get(folderId)?.length || 0;
     if (!window.confirm(`确定删除文件夹“${folderName}”吗？其中 ${count} 个文档也会一起删除。`)) return;
 
     try {
@@ -226,11 +278,18 @@ function KnowledgeBasePage() {
     if (mode === 'analysis' && !developerMode) {
       return;
     }
-    setViewer({ document, mode });
-    setMarkdownPreview('');
-    setItemsPreview([]);
+    const requestId = viewerRequestIdRef.current + 1;
+    viewerRequestIdRef.current = requestId;
+    setViewerLoading(mode !== 'analysis');
+    startTransition(() => {
+      setViewer({ document, mode });
+      setMarkdownPreview('');
+      setItemsPreview([]);
+      if (mode === 'analysis') {
+        setAnalysisSnapshot(null);
+      }
+    });
     if (mode === 'analysis') {
-      setAnalysisSnapshot(null);
       await loadAnalysis(document.id);
       return;
     }
@@ -238,14 +297,35 @@ function KnowledgeBasePage() {
     try {
       if (mode === 'markdown') {
         const markdown = await window.yibiao?.knowledgeBase.readMarkdown(document.id);
-        setMarkdownPreview(markdown || '');
+        if (viewerRequestIdRef.current === requestId) {
+          setMarkdownPreview(markdown || '');
+        }
       } else {
         const items = await window.yibiao?.knowledgeBase.readItems(document.id);
-        setItemsPreview(items || []);
+        if (viewerRequestIdRef.current === requestId) {
+          setItemsPreview(items || []);
+        }
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : '读取文档结果失败', 'error');
+      if (viewerRequestIdRef.current === requestId) {
+        showToast(error instanceof Error ? error.message : '读取文档结果失败', 'error');
+      }
+    } finally {
+      if (viewerRequestIdRef.current === requestId) {
+        setViewerLoading(false);
+      }
     }
+  };
+
+  const closeViewer = () => {
+    viewerRequestIdRef.current += 1;
+    startTransition(() => {
+      setViewer(null);
+      setViewerLoading(false);
+      setItemsPreview([]);
+      setMarkdownPreview('');
+      setAnalysisSnapshot(null);
+    });
   };
 
   const startMatching = async (targetDocument = viewer?.document, batchSizeOverride = batchSize, options?: { silent?: boolean }) => {
@@ -276,11 +356,12 @@ function KnowledgeBasePage() {
         itemsPreview={itemsPreview}
         markdownPreview={markdownPreview}
         analysisSnapshot={analysisSnapshot}
+        viewerLoading={viewerLoading}
         batchSize={batchSize}
         startingMatching={startingMatching}
         developerMode={developerMode}
         onBatchSizeChange={setBatchSize}
-        onBack={() => setViewer(null)}
+        onBack={closeViewer}
         onModeChange={(mode) => void openDocument(viewer.document, mode)}
         onStartMatching={() => void startMatching()}
         onRefreshAnalysis={() => void loadAnalysis(viewer.document.id)}
@@ -338,13 +419,18 @@ function KnowledgeBasePage() {
             <strong>文件夹</strong>
             <span>{index.folders.length} 个</span>
           </div>
-          {index.folders.length ? (
+          {listLoading ? (
+            <div className="knowledge-empty-box">
+              <strong>正在读取知识库...</strong>
+              <p>请稍候，正在加载文件夹和文档列表。</p>
+            </div>
+          ) : index.folders.length ? (
             <div className="knowledge-folder-list">
               {index.folders.map((folder) => {
-                const count = index.documents.filter((document) => document.folder_id === folder.id).length;
+                const count = documentsByFolder.get(folder.id)?.length || 0;
                 return (
                   <article key={folder.id} className={`knowledge-folder-card ${folder.id === activeFolder?.id ? 'is-active' : ''}`}>
-                    <button type="button" className="knowledge-folder-main" onClick={() => setActiveFolderId(folder.id)}>
+                    <button type="button" className="knowledge-folder-main" onClick={() => startTransition(() => setActiveFolderId(folder.id))}>
                       <span aria-hidden="true">F</span>
                       <strong>{folder.name}</strong>
                       <small>{count} 个文档</small>
@@ -371,9 +457,14 @@ function KnowledgeBasePage() {
             <span>{documents.length} 个文档</span>
           </div>
 
-          {documents.length ? (
+          {listLoading ? (
+            <div className="knowledge-empty-box large">
+              <strong>正在读取知识库...</strong>
+              <p>文档列表加载完成后会自动显示。</p>
+            </div>
+          ) : documents.length ? (
             <div className="knowledge-document-list">
-              {documents.map((document) => (
+              {visibleDocuments.map((document) => (
                 <article className="knowledge-document-card" key={document.id}>
                   <div className="knowledge-document-title">
                     <div className="knowledge-document-name">
@@ -399,6 +490,12 @@ function KnowledgeBasePage() {
                   </div>
                 </article>
               ))}
+              {visibleDocuments.length < documents.length && (
+                <div className="knowledge-empty-box">
+                  <strong>正在加载更多文档...</strong>
+                  <p>已显示 {visibleDocuments.length} / {documents.length} 个文档。</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="knowledge-empty-box large">
@@ -418,6 +515,7 @@ interface KnowledgeDocumentViewerProps {
   itemsPreview: KnowledgeItem[];
   markdownPreview: string;
   analysisSnapshot: KnowledgeAnalysisSnapshot | null;
+  viewerLoading: boolean;
   batchSize: number;
   startingMatching: boolean;
   developerMode: boolean;
@@ -434,6 +532,7 @@ function KnowledgeDocumentViewer({
   itemsPreview,
   markdownPreview,
   analysisSnapshot,
+  viewerLoading,
   batchSize,
   startingMatching,
   developerMode,
@@ -443,6 +542,12 @@ function KnowledgeDocumentViewer({
   onStartMatching,
   onRefreshAnalysis,
 }: KnowledgeDocumentViewerProps) {
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setExpandedItemId(null);
+  }, [document.id, mode]);
+
   return (
     <div className="page-stack knowledge-viewer-page">
       <section className="knowledge-workspace-bar knowledge-viewer-bar">
@@ -473,31 +578,70 @@ function KnowledgeDocumentViewer({
           />
         ) : mode === 'items' ? (
           <div className="knowledge-item-list knowledge-viewer-item-list">
-            {itemsPreview.length ? itemsPreview.map((item) => (
-              <article className="knowledge-item-card" key={item.id}>
-                {developerMode && <code className="knowledge-entity-id">条目ID：{item.id}</code>}
-                <strong>{item.title}</strong>
-                <p>{item.resume}</p>
-                <details>
-                  <summary>查看原文</summary>
-                  <div className="knowledge-item-content markdown-viewer">
-                    <MarkdownRenderer>
-                      {item.content}
-                    </MarkdownRenderer>
-                  </div>
-                </details>
-              </article>
+            {viewerLoading ? (
+              <div className="knowledge-empty-box">
+                <strong>正在读取知识条目...</strong>
+                <p>条目较多时需要稍等片刻。</p>
+              </div>
+            ) : itemsPreview.length ? itemsPreview.map((item) => (
+              <KnowledgeItemCard
+                key={item.id}
+                item={item}
+                developerMode={developerMode}
+                expanded={expandedItemId === item.id}
+                onExpandedChange={(expanded) => setExpandedItemId(expanded ? item.id : null)}
+              />
             )) : <div className="knowledge-empty-box"><strong>暂无知识条目</strong><p>文档完成整理后会显示结果。</p></div>}
           </div>
         ) : (
           <div className="markdown-viewer knowledge-viewer-markdown">
-            <MarkdownRenderer>
-              {markdownPreview || '暂无 Markdown 内容'}
-            </MarkdownRenderer>
+            {viewerLoading ? (
+              <div className="knowledge-empty-box large">
+                <strong>正在读取 Markdown...</strong>
+                <p>原文内容较大时需要稍等片刻。</p>
+              </div>
+            ) : (
+              <MarkdownRenderer>
+                {markdownPreview || '暂无 Markdown 内容'}
+              </MarkdownRenderer>
+            )}
           </div>
         )}
       </section>
     </div>
+  );
+}
+
+interface KnowledgeItemCardProps {
+  item: KnowledgeItem;
+  developerMode: boolean;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
+}
+
+function KnowledgeItemCard({ item, developerMode, expanded, onExpandedChange }: KnowledgeItemCardProps) {
+  return (
+    <article className="knowledge-item-card">
+      {developerMode && <code className="knowledge-entity-id">条目ID：{item.id}</code>}
+      <strong>{item.title}</strong>
+      <p>{item.resume}</p>
+      <details
+        open={expanded}
+        onToggle={(event) => {
+          const nextExpanded = event.currentTarget.open;
+          if (nextExpanded !== expanded) onExpandedChange(nextExpanded);
+        }}
+      >
+        <summary>查看原文</summary>
+        {expanded && (
+          <div className="knowledge-item-content markdown-viewer">
+            <MarkdownRenderer enableGfm={false} components={knowledgeItemSourceComponents}>
+              {item.content || '暂无原文内容'}
+            </MarkdownRenderer>
+          </div>
+        )}
+      </details>
+    </article>
   );
 }
 

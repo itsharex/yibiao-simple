@@ -4647,6 +4647,7 @@ button {
 }
 
 .knowledge-item-content {
+  min-height: 0;
   max-height: 260px;
   overflow: auto;
   color: var(--yb-text);
@@ -4655,6 +4656,13 @@ button {
   border: 1px solid var(--yb-border-soft);
   border-radius: 12px;
   padding: 12px;
+}
+
+.knowledge-item-link-text {
+  color: var(--yb-primary);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  overflow-wrap: anywhere;
 }
 
 .knowledge-item-content p,

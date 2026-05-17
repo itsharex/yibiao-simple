@@ -52,8 +52,14 @@ function registerIpcHandlers({ app, mainWindow, checkAndDownloadUpdate, triggerU
     if (!externalUrl) {
       return { success: false, message: '不支持的外部链接' };
     }
-    await shell.openExternal(externalUrl);
-    return { success: true };
+    try {
+      await shell.openExternal(externalUrl);
+      return { success: true };
+    } catch (error) {
+      const preview = externalUrl.length > 300 ? `${externalUrl.slice(0, 300)}...` : externalUrl;
+      console.warn('[app] 打开外部链接失败', { url: preview, message: error.message || String(error) });
+      return { success: false, message: '外部链接打开失败' };
+    }
   });
 
   ipcMain.handle('app:get-latest-version', () => {

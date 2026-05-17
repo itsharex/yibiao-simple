@@ -7,6 +7,8 @@ import type { ReactNode } from 'react';
 interface MarkdownRendererProps {
   children: string;
   components?: Components;
+  allowRawHtml?: boolean;
+  enableGfm?: boolean;
 }
 
 function markdownUrlTransform(value: string) {
@@ -60,11 +62,11 @@ function mergeMarkdownComponents(components?: Components): Components {
   return { ...defaultMarkdownComponents, ...(components || {}) };
 }
 
-function MarkdownRenderer({ children, components }: MarkdownRendererProps) {
+function MarkdownRenderer({ children, components, allowRawHtml = true, enableGfm = true }: MarkdownRendererProps) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeRaw]}
+      remarkPlugins={enableGfm ? [remarkGfm] : []}
+      rehypePlugins={allowRawHtml ? [rehypeRaw] : []}
       urlTransform={markdownUrlTransform}
       components={mergeMarkdownComponents(components)}
     >
