@@ -139,7 +139,6 @@ const initialState: SettingsPageState = {
   fileParser: {
     provider: 'local',
     mineru_token: '',
-    preserve_images: true,
   },
   general: {
     developer_mode: false,
@@ -212,7 +211,10 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
           model_name: config.model_name,
         },
         imageModel: config.image_model,
-        fileParser: config.file_parser,
+        fileParser: {
+          provider: config.file_parser.provider,
+          mineru_token: config.file_parser.mineru_token || '',
+        },
         general: {
           developer_mode: Boolean(config.developer_mode),
           real_time_render: config.real_time_render === true,
@@ -231,7 +233,10 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
     base_url: state.textModel.base_url,
     model_name: state.textModel.model_name,
     image_model: state.imageModel,
-    file_parser: state.fileParser,
+    file_parser: {
+      provider: state.fileParser.provider,
+      mineru_token: state.fileParser.mineru_token || '',
+    },
     developer_mode: state.general.developer_mode,
     real_time_render: state.general.real_time_render,
   });
@@ -896,25 +901,6 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
                 />
               </label>
             )}
-            <label className="settings-row">
-              <div className="settings-row-copy">
-                <strong>保留图片</strong>
-                <span>开启后转换 Markdown 时会保存文档图片并在预览中显示；关闭则沿用纯文本解析。</span>
-              </div>
-              <span className="settings-switch-control">
-                <input
-                  type="checkbox"
-                  checked={state.fileParser.preserve_images !== false}
-                  onChange={(event) => setState((prev) => ({
-                    ...prev,
-                    fileParser: { ...prev.fileParser, preserve_images: event.target.checked },
-                  }))}
-                />
-                <span className="settings-switch-track" aria-hidden="true">
-                  <span className="settings-switch-thumb" />
-                </span>
-              </span>
-            </label>
           </div>
 
           <div className="parser-compare">

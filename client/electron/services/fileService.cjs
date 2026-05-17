@@ -274,10 +274,6 @@ async function createLocalFileSelection(filePath) {
   };
 }
 
-function isPreserveImagesEnabled(config) {
-  return config.file_parser?.preserve_images !== false;
-}
-
 function stripMarkdownImages(text) {
   return String(text || '')
     .replace(markdownImagePattern, '')
@@ -472,7 +468,7 @@ async function parseDocumentWithConfig(app, filePath, config, options = {}) {
     throw new Error(`当前${parserLabels[parser.requestedProvider] || '解析方式'}不支持该文件格式`);
   }
   const provider = parser.provider;
-  const preserveImages = isPreserveImagesEnabled(config);
+  const preserveImages = options.preserveImages === true;
   const assets = preserveImages ? createAssetContext(app, options.assetScope || 'documents') : null;
   const parseOptions = { preserveImages, assets, imageResolver: createImageResolver(assets) };
   let markdown = '';
@@ -521,7 +517,7 @@ function createFileService({ app, configStore } = {}) {
 
       let fileContent = '';
       try {
-        fileContent = (await parseDocumentWithConfig(app, filePath, config, { assetScope: 'technical-plan' })).trim();
+        fileContent = (await parseDocumentWithConfig(app, filePath, config, { assetScope: 'technical-plan', preserveImages: false })).trim();
       } catch (error) {
         return {
           success: false,

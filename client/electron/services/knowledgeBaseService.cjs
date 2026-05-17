@@ -822,7 +822,7 @@ function createKnowledgeBaseService({ app, aiService, configStore }) {
 
     try {
       const document = getDocument(documentId);
-      const config = configStore ? configStore.load() : { file_parser: { provider: 'local', preserve_images: true } };
+      const config = configStore ? configStore.load() : { file_parser: { provider: 'local' } };
       const documentDir = fromRelative(baseDir, document.document_dir);
       const sourcePath = fromRelative(baseDir, document.source_path);
       const markdownPath = fromRelative(baseDir, document.markdown_path);
@@ -836,7 +836,7 @@ function createKnowledgeBaseService({ app, aiService, configStore }) {
       debugLog(documentId, 'prepare:copied-source', { source_path: sourcePath });
 
       updateDocument(documentId, { status: 'converting', progress: 15, message: '正在转换为 Markdown' }, webContents);
-      const markdown = stripMarkdownFence((await parseDocumentWithConfig(app, sourcePath, config, { assetScope: `knowledge-${documentId}` })).trim());
+      const markdown = stripMarkdownFence((await parseDocumentWithConfig(app, sourcePath, config, { assetScope: `knowledge-${documentId}`, preserveImages: false })).trim());
       if (!markdown) throw new Error('文档未解析出有效 Markdown 内容');
       await fsp.writeFile(markdownPath, `${markdown}\n`, 'utf-8');
       debugLog(documentId, 'prepare:converted-markdown', { markdown_path: markdownPath, markdown_chars: markdown.length });
