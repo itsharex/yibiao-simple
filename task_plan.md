@@ -174,6 +174,30 @@
 | planning skill 示例路径 `~/.opencode/.../session-catchup.py` 不存在 | 第一次 catchup | 改用实际路径 `~/.config/opencode/.../session-catchup.py` |
 | `git diff --check` 报 `client/doc/标书查重.md:54 trailing whitespace` | 收尾检查 | 该文件是既有/用户改动，本轮未修改，按工作区保护规则未处理；本轮修改文件仅有 LF/CRLF 提示 |
 
+## Current Task: Analytics 远程公告通道
+
+### Goal
+基于 Cloudflare KV 在 `analytics/` 增加可管理的 Markdown 公告通道；客户端与现有 30 分钟版本检查共用轮询，但公告用独立弹窗展示，关闭后同一公告不再显示，除非后台发布新公告。
+
+### Phases
+- [completed] 1. 新增 Worker 公告公开读取与管理员读写接口，使用 KV binding `NOTICE_STORE`。
+- [completed] 2. 在 Analytics Dashboard 增加公告管理 UI，支持读取、发布和停用最新公告。
+- [completed] 3. 在客户端接入远程公告轮询，与版本检查共用定时器但展示互不干扰。
+- [completed] 4. 更新 Analytics 部署文档，说明 KV 创建和接口。
+- [completed] 5. 运行 Worker 语法检查、Dashboard 脚本检查和客户端构建验证。
+
+### Decisions
+- 使用 Cloudflare KV，不使用 D1；只保存每个 projectName 的最新一份公告。
+- 客户端公告内容用 Markdown 渲染，并禁用 raw HTML。
+- 公告不预置任何内容，只从 Analytics Dashboard 发布。
+
+### Errors Encountered
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| planning skill 示例路径 `~/.opencode/.../session-catchup.py` 不存在 | 第一次 catchup | 改用实际路径 `~/.config/opencode/.../session-catchup.py` |
+| Dashboard 脚本检查命令报 `Unterminated regexp literal` | 第一次 Dashboard 检查 | PowerShell/Node `-e` 中正则字面量转义导致，改用字符串索引提取 `<script>` 内容 |
+| `remoteNotice.ts` 构建报 `enabled` 类型比较恒定 | 第一次 `npm run build` | `normalizeNotice()` 过滤停用公告后直接归一为 `enabled: true` |
+
 ## Current Task: GitHub Release 自动打包与客户端更新检查
 
 ### Goal

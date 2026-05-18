@@ -1,6 +1,16 @@
 # Progress
 
 ## Session Log
+- 开始 Analytics 远程公告通道实现：用户确认使用 Cloudflare KV；目标是 Worker/Dashboard/Client 全链路实现 Markdown 公告，客户端与 30 分钟版本检查共用轮询，公告关闭后同 ID 不再显示。
+- 文件型计划 catchup 首次使用示例路径失败，实际脚本位于 `~/.config/opencode/.../session-catchup.py`，已重跑成功并记录到计划。
+- 已完成 Analytics Worker 和 Dashboard 公告管理改造：Worker 新增公开 `/notice`、管理员 `/api/notice` GET/POST/DELETE；Dashboard 新增公告标题、启用状态、Markdown 内容、读取/发布/停用交互。
+- 已完成客户端远程公告接入：`UpdateNotifier` 与版本检查共用 30 分钟定时器，公告使用独立 Dialog 和 Markdown 渲染，关闭后以 `remote_notice_dismissed_id` 记录同 ID 不再显示。
+- 已新增 `analytics/scripts/setup-notice-kv.mjs` 和 `analytics/worker` 的 `setup:notice-kv` 脚本，文档补充 KV 创建、公告接口、Dashboard 使用和排查说明。
+- 验证进展：`node --check analytics/worker/src/index.js` 和 `node --check analytics/scripts/setup-notice-kv.mjs` 已通过；Dashboard 内嵌脚本首次检查失败是检查命令正则转义问题，准备换字符串索引方式重跑。
+- 第一次 `npm run build` 发现 `remoteNotice.ts` 中 `notice.enabled !== false` 在类型收窄后恒为 true，已改为过滤后直接归一 `enabled: true`。
+- 复查公告停用流程时发现 `DELETE /api/notice` 需要 CORS 预检支持，已将 Worker `Access-Control-Allow-Methods` 补充 `DELETE`，并重跑 Worker 语法检查通过。
+- 远程公告通道验证完成：`node --check analytics/worker/src/index.js`、`node --check analytics/scripts/setup-notice-kv.mjs`、Dashboard 内嵌脚本 `new Function` 检查、`cd client; npm run build`、本轮变更文件 `git diff --check` 均通过；构建仍只有既有 chunk 体积警告，diff check 仍只有 LF/CRLF 提示。
+- 用户本地执行 `npm run setup:notice-kv` 失败，原因是本地 Wrangler 没有 `CLOUDFLARE_API_TOKEN` 且脚本以非交互方式调用 Wrangler。已改造为部署前自动幂等执行：优先复用 `NOTICE_STORE_ID`/已配置 id/账号中已有 namespace，不存在才创建；`deploy-if-changed.mjs` 会在 `analytics/worker` 部署前调用该脚本。
 - 开始活跃留存与配置使用统计改造：已进入文件型计划，范围限定为客户端配置使用上报、Worker 汇总查询和 Dashboard 展示，不做任务漏斗/错误/耗时统计。
 - 已完成客户端埋点接入：`user_config.json` 新增 `analytics_created_at`；`analytics.ts` 支持 `config_usage`；应用启动、设置保存、生图测试、Step02/Step03/Step04 启动会按白名单上报配置枚举值。
 - 已完成 Worker 和 Dashboard 改造：Worker 支持 `config_usage`，新增 `/api/retention`、`/api/config-usage`，`summary` 增加活跃/新老客户端；Dashboard 增加活跃指标卡、留存概览、配置使用分布和最近事件分页。

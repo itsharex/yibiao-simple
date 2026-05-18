@@ -1,6 +1,11 @@
 # Findings
 
 ## Research Log
+- 远程公告通道适合使用 Cloudflare KV：需求只保存每个 `projectName` 最新一份公告，KV 的 key-value 模型比 D1 更轻量；Worker 现有 `ADMIN_TOKEN` 鉴权可复用到公告管理接口。
+- 客户端已有 `UpdateNotifier`，版本检查间隔为 30 分钟；可在同一个定时器里并行检查更新和远程公告，但更新继续用 Toast，公告使用独立 Dialog，避免同时触发时互相覆盖。
+- 客户端已有 `MarkdownRenderer`，公告渲染必须传 `allowRawHtml={false}`，避免远程公告里的 HTML 被渲染成 DOM。
+- Dashboard 是单文件静态页，已有 `requestJson()` 默认 GET + Bearer token；公告发布需要扩展为支持 POST/DELETE JSON body。
+- 公告管理的 `DELETE /api/notice` 会触发浏览器 CORS 预检，Worker 的 `Access-Control-Allow-Methods` 必须包含 `DELETE`，否则 Dashboard 停用公告会失败。
 - 本轮统计扩展只做“活跃与留存”和“配置使用情况”。现有 Analytics Engine blob1-blob7 已用于 project/event/page/version/platform/arch/clientId；可从 blob8 起扩展 `clientCreatedAt` 和配置枚举字段，保持旧数据兼容。
 - 客户端现有 `analytics.ts` 只支持 `app_open/page_view`，并从 `user_config` 读取 `analytics_client_id`；可继续通过 `window.yibiao.config.load()` 读取 `analytics_created_at` 和配置项。
 - Dashboard 当前仍按旧 `/api/latest?limit=50` 调用，Worker 已改为分页 `page/pageSize=10`，需要同步页面分页控件。
