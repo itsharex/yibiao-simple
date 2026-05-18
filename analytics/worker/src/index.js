@@ -1,6 +1,9 @@
 const DATASET = 'agnet_analytics';
 const ALLOWED_EVENTS = new Set(['app_open', 'page_view', 'config_usage']);
 const PROJECT_NAME_PATTERN = /^[a-zA-Z0-9._-]{1,80}$/;
+const NOTICE_KEY_PREFIX = 'project_notice:';
+const NOTICE_TITLE_MAX_LENGTH = 120;
+const NOTICE_CONTENT_MAX_LENGTH = 20000;
 const CONFIG_USAGE_FIELDS = [
   { key: 'fileParserProviders', blob: 'blob9' },
   { key: 'realTimeRender', blob: 'blob10' },
@@ -15,7 +18,7 @@ const CONFIG_USAGE_FIELDS = [
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Max-Age': '86400',
 };
@@ -93,6 +96,51 @@ function logQueryError(scope, error) {
   console.error(`[analytics] ${scope} query failed`, error?.message || String(error));
 }
 
+function buildNoticeKey(projectName) {
+  return `${NOTICE_KEY_PREFIX}${projectName}`;
+}
+
+function createNoticeId(now) {
+  const timestamp = now.replace(/[-:.TZ]/g, '').slice(0, 14);
+  const random = typeof globalThis.crypto?.randomUUID === 'function'
+    ? globalThis.crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).slice(2, 10);
+  return `notice-${timestamp}-${random}`;
+}
+
+function normalizeNoticeForResponse(notice) {
+  if (!notice || typeof notice !== 'object') {
+    return null;
+  }
+
+  return {
+    id: normalizeText(notice.id, 80),
+    projectName: normalizeText(notice.projectName, 80),
+    enabled: notice.enabled !== false,
+    title: normalizeText(notice.title, NOTICE_TITLE_MAX_LENGTH),
+    content: normalizeText(notice.content, NOTICE_CONTENT_MAX_LENGTH),
+    createdAt: normalizeText(notice.createdAt, 40),
+    updatedAt: normalizeText(notice.updatedAt, 40),
+  };
+}
+
+async function readProjectNotice(env, projectName) {
+  if (!env.NOTICE_STORE) {
+    return null;
+  }
+
+  const raw = await env.NOTICE_STORE.get(buildNoticeKey(projectName));
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return normalizeNoticeForResponse(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
 function sqlString(value) {
   return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
@@ -134,8 +182,16 @@ export default {
       return handleTrack(request, env);
     }
 
+    if (url.pathname === '/notice') {
+      return handlePublicNotice(request, env, url);
+    }
+
     if (url.pathname === '/api/projects') {
       return handleProjects(request, env);
+    }
+
+    if (url.pathname === '/api/notice') {
+      return handleAdminNotice(request, env, url);
     }
 
     if (url.pathname === '/api/summary') {
@@ -223,6 +279,111 @@ async function handleTrack(request, env) {
   } catch {
     return json({ code: 500, message: 'internal error' }, { status: 500 });
   }
+}
+
+async function handlePublicNotice(request, env, url) {
+  if (request.method !== 'GET') {
+    return json({ code: 405, message: 'method not allowed' }, { status: 405 });
+  }
+
+  const projectName = normalizeText(url.searchParams.get('projectName'), 80);
+  if (!isValidProjectName(projectName)) {
+    return json({ code: 400, message: 'invalid projectName' }, { status: 400 });
+  }
+
+  try {
+    const notice = await readProjectNotice(env, projectName);
+    return json({
+      code: 0,
+      notice: notice?.enabled && notice.content ? notice : null,
+    }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('[analytics] public notice failed', error?.message || String(error));
+    return json({ code: 0, notice: null }, { headers: { 'Cache-Control': 'no-store' } });
+  }
+}
+
+async function handleAdminNotice(request, env, url) {
+  if (!requireAdmin(request, env)) {
+    return json({ code: 401, message: 'unauthorized' }, { status: 401 });
+  }
+
+  if (!env.NOTICE_STORE) {
+    return json({ code: 500, message: 'NOTICE_STORE is not configured' }, { status: 500 });
+  }
+
+  if (request.method === 'GET') {
+    return handleAdminGetNotice(env, url);
+  }
+
+  if (request.method === 'POST') {
+    return handleAdminSaveNotice(request, env);
+  }
+
+  if (request.method === 'DELETE') {
+    return handleAdminDeleteNotice(env, url);
+  }
+
+  return json({ code: 405, message: 'method not allowed' }, { status: 405 });
+}
+
+async function handleAdminGetNotice(env, url) {
+  const projectName = normalizeText(url.searchParams.get('projectName'), 80);
+  if (!isValidProjectName(projectName)) {
+    return json({ code: 400, message: 'invalid projectName' }, { status: 400 });
+  }
+
+  const notice = await readProjectNotice(env, projectName);
+  return json({ code: 0, notice }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+async function handleAdminSaveNotice(request, env) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ code: 400, message: 'invalid json body' }, { status: 400 });
+  }
+
+  const projectName = normalizeText(body.projectName || body.project_name, 80);
+  const title = normalizeText(body.title, NOTICE_TITLE_MAX_LENGTH);
+  const content = normalizeText(body.content || body.markdown, NOTICE_CONTENT_MAX_LENGTH);
+
+  if (!isValidProjectName(projectName)) {
+    return json({ code: 400, message: 'invalid projectName' }, { status: 400 });
+  }
+
+  if (!title) {
+    return json({ code: 400, message: 'missing title' }, { status: 400 });
+  }
+
+  if (!content) {
+    return json({ code: 400, message: 'missing content' }, { status: 400 });
+  }
+
+  const now = new Date().toISOString();
+  const notice = {
+    id: createNoticeId(now),
+    projectName,
+    enabled: body.enabled !== false,
+    title,
+    content,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await env.NOTICE_STORE.put(buildNoticeKey(projectName), JSON.stringify(notice));
+  return json({ code: 0, notice });
+}
+
+async function handleAdminDeleteNotice(env, url) {
+  const projectName = normalizeText(url.searchParams.get('projectName'), 80);
+  if (!isValidProjectName(projectName)) {
+    return json({ code: 400, message: 'invalid projectName' }, { status: 400 });
+  }
+
+  await env.NOTICE_STORE.delete(buildNoticeKey(projectName));
+  return json({ code: 0, notice: null });
 }
 
 async function handleProjects(request, env) {

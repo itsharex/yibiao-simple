@@ -1995,6 +1995,86 @@ button {
   box-shadow: 0 28px 72px rgba(23, 32, 51, 0.24);
 }
 
+.remote-notice-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(3px);
+}
+
+.remote-notice-card {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 70;
+  display: grid;
+  width: min(680px, calc(100vw - 40px));
+  max-height: min(720px, calc(100vh - 56px));
+  gap: 14px;
+  padding: 24px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid rgba(220, 223, 230, 0.9);
+  border-radius: 24px;
+  box-shadow: 0 28px 72px rgba(23, 32, 51, 0.24);
+  transform: translate(-50%, -50%);
+}
+
+.remote-notice-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.remote-notice-header h2 {
+  margin: 0 0 6px;
+  color: var(--yb-text);
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.remote-notice-header p {
+  margin: 0;
+  color: var(--yb-text-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.remote-notice-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--yb-text-muted);
+  background: rgba(23, 32, 51, 0.05);
+  border: 0;
+  border-radius: 999px;
+}
+
+.remote-notice-close:hover {
+  color: var(--yb-text);
+  background: rgba(23, 32, 51, 0.08);
+}
+
+.remote-notice-meta {
+  color: var(--yb-text-muted);
+  font-size: 12px;
+}
+
+.remote-notice-content {
+  min-height: 0;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.remote-notice-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .export-progress-body {
   display: grid;
   gap: 14px;

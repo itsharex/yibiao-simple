@@ -109,15 +109,22 @@
 
     input,
     select,
+    textarea,
     button {
-      height: 40px;
       border-radius: 12px;
       border: 1px solid #d0d5dd;
       font: inherit;
     }
 
     input,
-    select {
+    select,
+    button {
+      height: 40px;
+    }
+
+    input,
+    select,
+    textarea {
       width: 100%;
       padding: 0 12px;
       background: #fff;
@@ -125,8 +132,16 @@
       outline: none;
     }
 
+    textarea {
+      min-height: 180px;
+      padding: 12px;
+      line-height: 1.65;
+      resize: vertical;
+    }
+
     input:focus,
-    select:focus {
+    select:focus,
+    textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px var(--primary-soft);
     }
@@ -250,6 +265,69 @@
       font-size: 15px;
     }
 
+    .notice-panel {
+      margin-bottom: 16px;
+    }
+
+    .notice-form {
+      display: grid;
+      grid-template-columns: 1fr 220px;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .notice-field-wide {
+      grid-column: 1 / -1;
+    }
+
+    .notice-meta,
+    .notice-status {
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      white-space: pre-wrap;
+    }
+
+    .notice-status {
+      display: none;
+      margin-top: 12px;
+    }
+
+    .notice-status.ok {
+      display: block;
+      color: #166534;
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    .notice-status.error {
+      display: block;
+      color: #991b1b;
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .notice-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .notice-actions button {
+      align-self: auto;
+    }
+
+    .notice-actions .danger-button {
+      color: #991b1b;
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -292,8 +370,13 @@
       .controls,
       .cards,
       .grid,
-      .usage-grid {
+      .usage-grid,
+      .notice-form {
         grid-template-columns: 1fr;
+        display: grid;
+      }
+
+      .notice-actions {
         display: grid;
       }
 
@@ -343,6 +426,39 @@
 
     <div class="panel hint">Token 只保存在当前浏览器 localStorage，不写入仓库，也不会提交到服务端。</div>
     <div id="errorBox" class="error"></div>
+
+    <section class="panel section notice-panel">
+      <div class="section-head">
+        <div>
+          <h2>公告管理</h2>
+          <p>发布后客户端会在启动和每 30 分钟轮询时拉取最新 Markdown 公告。同一公告关闭后不再显示，重新发布会生成新的公告 ID。</p>
+        </div>
+        <button id="loadNoticeButton" type="button">读取公告</button>
+      </div>
+      <div id="noticeMeta" class="notice-meta">当前未读取公告。</div>
+      <div class="notice-form">
+        <label>
+          公告标题
+          <input id="noticeTitle" maxlength="120" placeholder="例如：开源许可证提醒" />
+        </label>
+        <label>
+          状态
+          <select id="noticeEnabled">
+            <option value="true" selected>启用</option>
+            <option value="false">保存但不展示</option>
+          </select>
+        </label>
+        <label class="notice-field-wide">
+          Markdown 内容
+          <textarea id="noticeContent" maxlength="20000" placeholder="输入 Markdown 公告内容。支持标题、列表、链接、加粗等语法。"></textarea>
+        </label>
+      </div>
+      <div class="notice-actions">
+        <button id="disableNoticeButton" class="danger-button" type="button">停用公告</button>
+        <button id="publishNoticeButton" type="button">发布公告</button>
+      </div>
+      <div id="noticeStatus" class="notice-status"></div>
+    </section>
 
     <section class="cards">
       <div class="panel card"><span>打开量</span><strong id="totalOpen">0</strong></div>
@@ -425,6 +541,14 @@
       prevLatestPage: $('prevLatestPage'),
       nextLatestPage: $('nextLatestPage'),
       latestPageInfo: $('latestPageInfo'),
+      loadNoticeButton: $('loadNoticeButton'),
+      publishNoticeButton: $('publishNoticeButton'),
+      disableNoticeButton: $('disableNoticeButton'),
+      noticeMeta: $('noticeMeta'),
+      noticeStatus: $('noticeStatus'),
+      noticeTitle: $('noticeTitle'),
+      noticeEnabled: $('noticeEnabled'),
+      noticeContent: $('noticeContent'),
     };
 
     let latestPage = 1;
@@ -472,12 +596,21 @@
       state.errorBox.textContent = message || '';
     }
 
-    async function requestJson(path) {
+    async function requestJson(path, options = {}) {
       const apiBase = normalizeApiBase(state.apiBase.value);
+      const headers = {
+        Authorization: `Bearer ${state.adminToken.value.trim()}`,
+      };
+      if (options.body !== undefined) {
+        headers['Content-Type'] = 'application/json';
+      }
+
       const response = await fetch(`${apiBase}${path}`, {
+        method: options.method || 'GET',
         headers: {
-          Authorization: `Bearer ${state.adminToken.value.trim()}`,
+          ...headers,
         },
+        body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       });
 
       const data = await response.json().catch(() => null);
@@ -512,6 +645,114 @@
         }
       } catch {
         // 项目列表只是输入提示，失败不影响按项目名查询。
+      }
+    }
+
+    function setNoticeStatus(message, type = '') {
+      state.noticeStatus.className = type ? `notice-status ${type}` : 'notice-status';
+      state.noticeStatus.textContent = message || '';
+    }
+
+    function renderNoticeMeta(notice) {
+      if (!notice) {
+        state.noticeMeta.textContent = '当前项目暂无公告。';
+        return;
+      }
+
+      const enabledText = notice.enabled === false ? '停用' : '启用';
+      state.noticeMeta.textContent = `公告 ID：${notice.id || '-'}\n状态：${enabledText}\n更新时间：${notice.updatedAt || '-'}\n项目：${notice.projectName || '-'}`;
+    }
+
+    function fillNoticeForm(notice) {
+      state.noticeTitle.value = notice?.title || '';
+      state.noticeEnabled.value = notice?.enabled === false ? 'false' : 'true';
+      state.noticeContent.value = notice?.content || '';
+      renderNoticeMeta(notice);
+    }
+
+    function getSelectedProjectName() {
+      return state.projectName.value.trim();
+    }
+
+    async function loadNotice(options = {}) {
+      try {
+        if (!state.adminToken.value.trim()) {
+          throw new Error('请先输入 ADMIN_TOKEN');
+        }
+        const projectName = getSelectedProjectName();
+        if (!projectName) {
+          throw new Error('请先输入项目名');
+        }
+
+        const data = await requestJson(`/api/notice?projectName=${encodeURIComponent(projectName)}`);
+        fillNoticeForm(data.notice || null);
+        if (!options.quiet) {
+          setNoticeStatus(data.notice ? '公告已读取。' : '当前项目暂无公告。', 'ok');
+        }
+      } catch (error) {
+        if (!options.quiet) {
+          setNoticeStatus(error?.message || String(error), 'error');
+        }
+      }
+    }
+
+    async function publishNotice() {
+      setNoticeStatus('');
+      try {
+        if (!state.adminToken.value.trim()) {
+          throw new Error('请先输入 ADMIN_TOKEN');
+        }
+        const projectName = getSelectedProjectName();
+        if (!projectName) {
+          throw new Error('请先输入项目名');
+        }
+        const title = state.noticeTitle.value.trim();
+        const content = state.noticeContent.value.trim();
+        if (!title) {
+          throw new Error('请先填写公告标题');
+        }
+        if (!content) {
+          throw new Error('请先填写 Markdown 内容');
+        }
+
+        state.publishNoticeButton.disabled = true;
+        const data = await requestJson('/api/notice', {
+          method: 'POST',
+          body: {
+            projectName,
+            title,
+            content,
+            enabled: state.noticeEnabled.value !== 'false',
+          },
+        });
+        fillNoticeForm(data.notice || null);
+        setNoticeStatus('公告已发布。客户端会在下一次轮询时拉取新公告。', 'ok');
+      } catch (error) {
+        setNoticeStatus(error?.message || String(error), 'error');
+      } finally {
+        state.publishNoticeButton.disabled = false;
+      }
+    }
+
+    async function disableNotice() {
+      setNoticeStatus('');
+      try {
+        if (!state.adminToken.value.trim()) {
+          throw new Error('请先输入 ADMIN_TOKEN');
+        }
+        const projectName = getSelectedProjectName();
+        if (!projectName) {
+          throw new Error('请先输入项目名');
+        }
+
+        state.disableNoticeButton.disabled = true;
+        await requestJson(`/api/notice?projectName=${encodeURIComponent(projectName)}`, { method: 'DELETE' });
+        fillNoticeForm(null);
+        setNoticeStatus('公告已停用。客户端后续不会再拉取到该公告。', 'ok');
+      } catch (error) {
+        setNoticeStatus(error?.message || String(error), 'error');
+      } finally {
+        state.disableNoticeButton.disabled = false;
       }
     }
 
@@ -681,6 +922,8 @@
           { key: 'clientId', label: '客户端ID', code: true },
         ], '暂无最近事件');
 
+        void loadNotice({ quiet: true });
+
         setStatus('ok', '已连接');
       } catch (error) {
         setStatus('error', '连接失败');
@@ -692,6 +935,9 @@
     }
 
     state.refreshButton.addEventListener('click', () => refresh({ resetLatestPage: true }));
+    state.loadNoticeButton.addEventListener('click', () => loadNotice());
+    state.publishNoticeButton.addEventListener('click', publishNotice);
+    state.disableNoticeButton.addEventListener('click', disableNotice);
     state.prevLatestPage.addEventListener('click', () => {
       latestPage = Math.max(1, latestPage - 1);
       refresh();

@@ -1,8 +1,11 @@
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
 const watchPath = process.argv[2];
 const isWorkersBuild = Boolean(process.env.WORKERS_CI || process.env.WORKERS_CI_COMMIT_SHA);
 const forceDeploy = process.env.FORCE_DEPLOY === '1';
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 if (!watchPath) {
   console.error('Usage: node deploy-if-changed.mjs <watch-path>');
@@ -18,12 +21,30 @@ function run(command, args, options = {}) {
 }
 
 function deploy() {
+  runPreDeploySetup();
+
   const result = spawnSync('npx', ['wrangler', 'deploy'], {
     stdio: 'inherit',
     shell: process.platform === 'win32',
   });
 
   process.exit(result.status ?? 1);
+}
+
+function runPreDeploySetup() {
+  if (String(watchPath || '').replace(/\\/g, '/') !== 'analytics/worker') {
+    return;
+  }
+
+  const setupScript = resolve(__dirname, 'setup-notice-kv.mjs');
+  const result = spawnSync(process.execPath, [setupScript], {
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  });
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
 }
 
 function getTrimmedStdout(result) {
