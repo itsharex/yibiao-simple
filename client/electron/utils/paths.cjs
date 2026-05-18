@@ -20,6 +20,10 @@ function getDuplicateCheckFilePath(app) {
   return path.join(getWorkspaceDir(app), 'duplicate_check.json');
 }
 
+function getDuplicateCheckDir(app) {
+  return path.join(getWorkspaceDir(app), 'duplicate-check');
+}
+
 function getGeneratedImagesDir(app) {
   return path.join(getWorkspaceDir(app), 'generated-images');
 }
@@ -38,6 +42,7 @@ function getAiLogsDir(app) {
 
 module.exports = {
   getAiLogsDir,
+  getDuplicateCheckDir,
   getConfigFilePath,
   getDuplicateCheckFilePath,
   getGeneratedImagesDir,

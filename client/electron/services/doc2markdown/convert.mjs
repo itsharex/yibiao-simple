@@ -724,7 +724,7 @@ function renderMarkdownTableRow(row) {
   return `|${row.join('|')}|`;
 }
 
-async function convertLegacyWordFile(inputPath, includeImages, imageResolver) {
+export async function withLegacyWordDocxFile(inputPath, callback) {
   const soffice = await findLibreOfficeCommand();
   if (!soffice) {
     throw new ConversionError('office_backend_missing', '未找到 LibreOffice，无法转换 DOC/WPS 文件', {
@@ -744,10 +744,14 @@ async function convertLegacyWordFile(inputPath, includeImages, imageResolver) {
         inputPath,
       });
     }
-    return convertDocxFile(path.join(tempDir, docxName), includeImages, imageResolver);
+    return await callback(path.join(tempDir, docxName), tempDir);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
+}
+
+async function convertLegacyWordFile(inputPath, includeImages, imageResolver) {
+  return withLegacyWordDocxFile(inputPath, (docxPath) => convertDocxFile(docxPath, includeImages, imageResolver));
 }
 
 async function getLegacyConversionSuffix(inputPath) {

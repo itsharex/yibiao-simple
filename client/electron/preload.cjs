@@ -69,6 +69,14 @@ const bridge = {
       return () => ipcRenderer.removeListener('knowledge-base:event', listener);
     },
   },
+  duplicateCheck: {
+    startMetadataAnalysis: (payload) => ipcRenderer.invoke('duplicate-check:start-metadata-analysis', payload),
+    onEvent: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('duplicate-check:event', listener);
+      return () => ipcRenderer.removeListener('duplicate-check:event', listener);
+    },
+  },
   workspace: {
     loadTechnicalPlan: () => ipcRenderer.invoke('workspace:load-technical-plan'),
     saveTechnicalPlan: (state) => ipcRenderer.invoke('workspace:save-technical-plan', state),

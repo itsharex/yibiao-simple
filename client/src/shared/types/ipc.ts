@@ -1,5 +1,5 @@
 import type { AiStreamEvent, ChatCompletionRequest, JsonCompletionRequest } from './ai';
-import type { DuplicateCheckWorkspaceState, FileImportResult, FileSelectionResult } from './bid';
+import type { DuplicateCheckWorkspaceState, DuplicateMetadataAnalysisState, FileImportResult, FileSelectionResult } from './bid';
 import type { ClientConfig, ConfigSaveResult, ImageModelTestResult, ModelListResult } from './config';
 import type { KnowledgeAnalysisSnapshot, KnowledgeBaseEvent, KnowledgeBaseIndex, KnowledgeBaseMutationResult, KnowledgeBaseStartMatchingResult, KnowledgeBaseUploadResult, KnowledgeDocument, KnowledgeFolder, KnowledgeItem } from '../../features/knowledge-base/types';
 
@@ -81,6 +81,10 @@ export interface YibiaoBridge {
     readItems: (documentId: string) => Promise<KnowledgeItem[]>;
     readAnalysis: (documentId: string) => Promise<KnowledgeAnalysisSnapshot>;
     onEvent: (callback: (event: KnowledgeBaseEvent) => void) => () => void;
+  };
+  duplicateCheck: {
+    startMetadataAnalysis: (payload: { tenderFile: DuplicateCheckWorkspaceState['tenderFile']; bidFiles: DuplicateCheckWorkspaceState['bidFiles']; force?: boolean }) => Promise<DuplicateMetadataAnalysisState>;
+    onEvent: (callback: (event: { duplicateCheck: DuplicateCheckWorkspaceState }) => void) => () => void;
   };
   workspace: {
     loadTechnicalPlan: <TState = unknown>() => Promise<TState | null>;

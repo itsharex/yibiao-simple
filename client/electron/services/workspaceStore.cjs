@@ -1,11 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { getDuplicateCheckFilePath, getTechnicalPlanFilePath } = require('../utils/paths.cjs');
+const { getDuplicateCheckDir, getDuplicateCheckFilePath, getTechnicalPlanFilePath } = require('../utils/paths.cjs');
 const { deleteImportedImageBatches } = require('../utils/importedImages.cjs');
 
 function createWorkspaceStore(app) {
   const technicalPlanFile = getTechnicalPlanFilePath(app);
   const duplicateCheckFile = getDuplicateCheckFilePath(app);
+  const duplicateCheckDir = getDuplicateCheckDir(app);
 
   return {
     getTechnicalPlanFilePath() {
@@ -77,11 +78,22 @@ function createWorkspaceStore(app) {
       }
     },
 
+    updateDuplicateCheck(partial) {
+      const prev = this.loadDuplicateCheck() || {};
+      const next = { ...prev, ...partial };
+      this.saveDuplicateCheck(next);
+      return next;
+    },
+
     clearDuplicateCheck() {
       try {
         if (fs.existsSync(duplicateCheckFile)) {
           fs.unlinkSync(duplicateCheckFile);
         }
+        if (fs.existsSync(duplicateCheckDir)) {
+          fs.rmSync(duplicateCheckDir, { recursive: true, force: true });
+        }
+        deleteImportedImageBatches(app, 'duplicate-check-content');
         return { success: true, message: '标书查重缓存已清空', file_path: duplicateCheckFile };
       } catch (error) {
         throw new Error(`标书查重缓存清空失败：${error.message}`);
