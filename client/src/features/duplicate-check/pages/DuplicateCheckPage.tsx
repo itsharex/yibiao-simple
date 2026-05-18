@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FloatingToolbar, ToolbarArrowRightIcon, useToast } from '../../../shared/ui';
+import { FloatingToolbar, ToolbarArrowLeftIcon, ToolbarArrowRightIcon, useToast } from '../../../shared/ui';
 import type { FloatingToolbarGroup } from '../../../shared/ui';
 import type { DuplicateAnalysisTabId, DuplicateCheckStep, DuplicateCheckWorkspaceState, LocalFileSelection } from '../../../shared/types';
 
@@ -29,6 +29,11 @@ const analysisTabs: Array<{
 ];
 
 const defaultAnalysisTab: DuplicateAnalysisTabId = 'metadata';
+const steps: DuplicateCheckStep[] = ['upload', 'analysis'];
+const stepLabels: Record<DuplicateCheckStep, string> = {
+  upload: '选择标书',
+  analysis: '查重结果',
+};
 
 function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
@@ -60,6 +65,13 @@ function DuplicateAnalysisPane({ activeTab, onTabChange }: { activeTab: Duplicat
 
   return (
     <section className="duplicate-analysis-panel">
+      <div className="duplicate-page-title duplicate-analysis-title">
+        <div>
+          <span className="section-kicker">STEP 02</span>
+          <h2>查重结果</h2>
+        </div>
+      </div>
+
       <div className="duplicate-analysis-tabs" role="tablist" aria-label="标书查重维度">
         {analysisTabs.map((item) => {
           const isActive = item.id === activeTab;
@@ -115,6 +127,13 @@ function DuplicateCheckPage() {
 
   const totalSize = useMemo(() => bidFiles.reduce((sum, file) => sum + file.size, tenderFile?.size || 0), [bidFiles, tenderFile]);
   const canGoNext = bidFiles.length > 0;
+  const activeIndex = steps.indexOf(step);
+  const isNextDisabled = activeIndex >= steps.length - 1 || !canGoNext;
+  const nextTooltip = activeIndex >= steps.length - 1
+    ? '当前已经是最后一步'
+    : canGoNext
+      ? `进入${stepLabels[steps[activeIndex + 1]]}`
+      : '请先上传至少一份投标文件';
 
   useEffect(() => {
     let canceled = false;
@@ -213,22 +232,14 @@ function DuplicateCheckPage() {
     showToast('已重置上传列表', 'success');
   };
 
-  const goNext = () => {
-    if (!canGoNext) {
-      showToast('请先上传至少一份投标文件', 'info');
-      return;
-    }
-
-    if (step === 'upload') {
-      setStep('analysis');
-      return;
-    }
-
-    showToast('查重处理流程待接入', 'info');
+  const switchStep = (nextStep: DuplicateCheckStep) => {
+    setStep(nextStep);
   };
 
-  const goHome = () => {
-    setStep('upload');
+  const goToOffset = (offset: number) => {
+    const nextStep = steps[activeIndex + offset];
+    if (!nextStep) return;
+    switchStep(nextStep);
   };
 
   const toolbarGroups: FloatingToolbarGroup[] = [
@@ -239,16 +250,15 @@ function DuplicateCheckPage() {
           id: 'reset',
           label: '重置',
           variant: 'danger',
-          disabled: !tenderFile && bidFiles.length === 0,
-          tooltip: '清空已选择的招标文件和投标文件',
+          tooltip: '清空当前标书查重流程',
           onClick: resetFiles,
         },
         {
           id: 'home',
           label: '首页',
           variant: step === 'upload' ? 'primary' : 'secondary',
-          tooltip: '回到上传文件首页',
-          onClick: goHome,
+          tooltip: '回到选择标书',
+          onClick: () => switchStep('upload'),
         },
       ],
     },
@@ -256,13 +266,21 @@ function DuplicateCheckPage() {
       id: 'duplicate-check-navigation',
       actions: [
         {
+          id: 'previous-step',
+          label: '上一步',
+          icon: <ToolbarArrowLeftIcon />,
+          disabled: activeIndex <= 0,
+          tooltip: activeIndex <= 0 ? '当前已经是第一步' : `返回${stepLabels[steps[activeIndex - 1]]}`,
+          onClick: () => goToOffset(-1),
+        },
+        {
           id: 'next-step',
           label: '下一步',
           icon: <ToolbarArrowRightIcon />,
           variant: 'primary',
-          disabled: !canGoNext,
-          tooltip: canGoNext ? '进入查重处理流程' : '请先上传至少一份投标文件',
-          onClick: goNext,
+          disabled: isNextDisabled,
+          tooltip: nextTooltip,
+          onClick: () => goToOffset(1),
         },
       ],
     },
@@ -275,8 +293,8 @@ function DuplicateCheckPage() {
           <section className="duplicate-upload-board">
             <div className="duplicate-page-title">
               <div>
-                <span className="section-kicker">文本风险</span>
-                <h2>标书查重</h2>
+                <span className="section-kicker">STEP 01</span>
+                <h2>选择标书</h2>
               </div>
               <div className="duplicate-upload-summary">
                 <span>{tenderFile ? '1 份招标文件' : '未上传招标文件'}</span>
