@@ -135,7 +135,9 @@ Contributions are welcome.
 
 ## 📄 License
 
-This project is released under the [MIT License](LICENSE).
+This project is released under the [GNU Affero General Public License v3.0](LICENSE).
+
+You may use, modify, distribute, and commercialize this project, but modified versions, redistributed copies, and network-accessible services must comply with the AGPL-3.0 source-sharing obligations and preserve the [NOTICE](NOTICE) attribution notice, original repository link, and author information.
 
 ## 🙋‍♂️ Contact
 

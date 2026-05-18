@@ -140,7 +140,9 @@
 
 ## 📄 许可证
 
-本项目基于 [MIT License](LICENSE) 开源协议发布。
+本项目基于 [GNU Affero General Public License v3.0](LICENSE) 开源协议发布。
+
+你可以自由使用、修改、分发和商用本项目，但修改版、分发版和通过网络提供服务的版本必须遵守 AGPL-3.0 的开源义务，并保留本项目的 [NOTICE](NOTICE) 归属声明、原始仓库链接和作者信息。
 
 ## 🙋‍♂️ 联系我们
 
