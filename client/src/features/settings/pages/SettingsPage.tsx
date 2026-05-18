@@ -211,7 +211,10 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
           model_name: config.model_name,
         },
         imageModel: config.image_model,
-        fileParser: config.file_parser,
+        fileParser: {
+          provider: config.file_parser.provider,
+          mineru_token: config.file_parser.mineru_token || '',
+        },
         general: {
           developer_mode: Boolean(config.developer_mode),
           real_time_render: config.real_time_render === true,
@@ -230,7 +233,10 @@ function SettingsPage({ onDeveloperModeChange }: SettingsPageProps) {
     base_url: state.textModel.base_url,
     model_name: state.textModel.model_name,
     image_model: state.imageModel,
-    file_parser: state.fileParser,
+    file_parser: {
+      provider: state.fileParser.provider,
+      mineru_token: state.fileParser.mineru_token || '',
+    },
     developer_mode: state.general.developer_mode,
     real_time_render: state.general.real_time_render,
   });

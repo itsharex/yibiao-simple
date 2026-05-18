@@ -7,6 +7,7 @@ const bridge = {
   platform: process.platform,
   getVersion: () => ipcRenderer.invoke('app:get-version'),
   getLatestVersion: () => ipcRenderer.invoke('app:get-latest-version'),
+  openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
   checkUpdate: () => ipcRenderer.invoke('app:check-update'),
   startUpdate: () => ipcRenderer.invoke('app:start-update'),
   quitAndInstall: () => ipcRenderer.invoke('app:quit-and-install'),
@@ -49,6 +50,7 @@ const bridge = {
   },
   file: {
     importDocument: () => ipcRenderer.invoke('file:import-document'),
+    selectDuplicateCheckFiles: (options) => ipcRenderer.invoke('file:select-duplicate-check-files', options),
   },
   knowledgeBase: {
     list: () => ipcRenderer.invoke('knowledge-base:list'),
@@ -67,11 +69,22 @@ const bridge = {
       return () => ipcRenderer.removeListener('knowledge-base:event', listener);
     },
   },
+  duplicateCheck: {
+    startMetadataAnalysis: (payload) => ipcRenderer.invoke('duplicate-check:start-metadata-analysis', payload),
+    onEvent: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('duplicate-check:event', listener);
+      return () => ipcRenderer.removeListener('duplicate-check:event', listener);
+    },
+  },
   workspace: {
     loadTechnicalPlan: () => ipcRenderer.invoke('workspace:load-technical-plan'),
     saveTechnicalPlan: (state) => ipcRenderer.invoke('workspace:save-technical-plan', state),
     updateTechnicalPlan: (partial) => ipcRenderer.invoke('workspace:update-technical-plan', partial),
     clearTechnicalPlan: () => ipcRenderer.invoke('workspace:clear-technical-plan'),
+    loadDuplicateCheck: () => ipcRenderer.invoke('workspace:load-duplicate-check'),
+    saveDuplicateCheck: (state) => ipcRenderer.invoke('workspace:save-duplicate-check', state),
+    clearDuplicateCheck: () => ipcRenderer.invoke('workspace:clear-duplicate-check'),
   },
   tasks: {
     startBidAnalysis: (payload) => ipcRenderer.invoke('tasks:start-bid-analysis', payload),

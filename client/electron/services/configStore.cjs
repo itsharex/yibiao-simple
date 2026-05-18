@@ -35,6 +35,7 @@ function createAnalyticsCreatedAt() {
 }
 
 function normalizeConfig(config) {
+  const fileParser = config && config.file_parser ? config.file_parser : {};
   return {
     ...defaultConfig,
     ...config,
@@ -43,8 +44,8 @@ function normalizeConfig(config) {
       ...(config && config.image_model ? config.image_model : {}),
     },
     file_parser: {
-      ...defaultConfig.file_parser,
-      ...(config && config.file_parser ? config.file_parser : {}),
+      provider: fileParser.provider || defaultConfig.file_parser.provider,
+      mineru_token: fileParser.mineru_token || defaultConfig.file_parser.mineru_token,
     },
   };
 }
