@@ -4,6 +4,9 @@ import { queryAnalytics } from '../services/analyticsQuery.js';
 import { isValidProjectName, logQueryError, normalizeText, safeDays, sqlString } from '../utils.js';
 
 function buildConfigUsageSql(project, days, field) {
+  const event = field.event || 'config_usage';
+  const requestTypeFilter = field.requestType ? `\n      AND blob20 = ${sqlString(field.requestType)}` : '';
+
   return `
     SELECT
       ${field.blob} AS value,
@@ -11,7 +14,7 @@ function buildConfigUsageSql(project, days, field) {
       SUM(_sample_interval) AS events
     FROM ${DATASET}
     WHERE blob1 = ${project}
-      AND blob2 = 'config_usage'
+      AND blob2 = ${sqlString(event)}${requestTypeFilter}
       AND ${field.blob} != ''
       AND timestamp >= NOW() - INTERVAL '${days}' DAY
     GROUP BY value

@@ -28,6 +28,7 @@ export async function handleTrack(request, env) {
     const useAiImages = normalizeMetricValue(body.use_ai_images ?? body.useAiImages, 20);
     const textModelName = normalizeText(body.text_model_name || body.textModelName, 120);
     const imageModelName = normalizeText(body.image_model_name || body.imageModelName, 120);
+    const aiRequestType = normalizeText(body.ai_request_type || body.aiRequestType, 20);
 
     if (!isValidProjectName(projectName)) {
       return json({ code: 400, message: 'invalid projectName' }, { status: 400 });
@@ -62,6 +63,7 @@ export async function handleTrack(request, env) {
         useAiImages,
         textModelName,
         imageModelName,
+        aiRequestType,
       ],
       doubles: [1],
       indexes: [projectName],

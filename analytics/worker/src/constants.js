@@ -1,5 +1,5 @@
 export const DATASET = 'agnet_analytics';
-export const ALLOWED_EVENTS = new Set(['app_open', 'page_view', 'config_usage']);
+export const ALLOWED_EVENTS = new Set(['app_open', 'page_view', 'config_usage', 'ai_request']);
 export const PROJECT_NAME_PATTERN = /^[a-zA-Z0-9._-]{1,80}$/;
 export const NOTICE_KEY_PREFIX = 'project_notice:';
 export const NOTICE_TITLE_MAX_LENGTH = 120;
@@ -16,6 +16,6 @@ export const CONFIG_USAGE_FIELDS = [
   { key: 'tableRequirements', blob: 'blob15' },
   { key: 'useMermaidImages', blob: 'blob16' },
   { key: 'useAiImages', blob: 'blob17' },
-  { key: 'textModelNames', blob: 'blob18' },
-  { key: 'imageModelNames', blob: 'blob19' },
+  { key: 'textModelNames', blob: 'blob18', event: 'ai_request', requestType: 'text' },
+  { key: 'imageModelNames', blob: 'blob19', event: 'ai_request', requestType: 'image' },
 ];

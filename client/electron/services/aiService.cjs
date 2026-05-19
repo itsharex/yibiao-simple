@@ -4,6 +4,8 @@ const crypto = require('node:crypto');
 const { getAiLogsDir, getGeneratedImagesDir } = require('../utils/paths.cjs');
 
 const AI_REQUEST_TIMEOUT_MS = 300000;
+const ANALYTICS_ENDPOINT = 'https://analytics.agnet.top/track';
+const ANALYTICS_PROJECT_NAME = 'yibiao-client';
 
 function trimBaseUrl(baseUrl) {
   return (baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
@@ -70,6 +72,30 @@ function createHeaders(apiKey) {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${apiKey}`,
   };
+}
+
+function trackAiRequest(app, config, payload) {
+  const imageConfig = config.image_model || {};
+  const body = {
+    projectName: ANALYTICS_PROJECT_NAME,
+    event: 'ai_request',
+    version: typeof app?.getVersion === 'function' ? app.getVersion() : '',
+    platform: process.platform,
+    arch: process.arch,
+    client_id: config.analytics_client_id || '',
+    client_created_at: config.analytics_created_at || '',
+    ai_request_type: payload.ai_request_type || '',
+    text_model_name: payload.ai_request_type === 'text' ? config.model_name || '' : '',
+    image_model_name: payload.ai_request_type === 'image' ? imageConfig.model_name || '' : '',
+  };
+
+  void Promise.resolve()
+    .then(() => fetch(ANALYTICS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }))
+    .catch(() => undefined);
 }
 
 function imageExtensionFromMime(mimeType) {
@@ -413,10 +439,11 @@ function createChatRequestBody(config, request, options = {}) {
   return body;
 }
 
-async function fetchChatCompletion(config, body) {
+async function fetchChatCompletion(app, config, body) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
   try {
+    trackAiRequest(app, config, { ai_request_type: 'text' });
     return await fetch(`${trimBaseUrl(config.base_url)}/chat/completions`, {
       method: 'POST',
       headers: createHeaders(config.api_key),
@@ -451,12 +478,12 @@ async function chatWithConfig(app, config, request) {
       status: 'pending',
       created_at: new Date().toISOString(),
     });
-    let response = await fetchChatCompletion(config, requestBody);
+    let response = await fetchChatCompletion(app, config, requestBody);
     if (!response.ok && request.response_format) {
       const detail = await response.text().catch(() => '');
       if (isResponseFormatUnsupported(detail)) {
         requestBody = createChatRequestBody(config, request, { omitResponseFormat: true });
-        response = await fetchChatCompletion(config, requestBody);
+        response = await fetchChatCompletion(app, config, requestBody);
       } else {
         throw new Error(detail || 'AI 请求失败');
       }
@@ -536,7 +563,7 @@ async function streamChatWithConfig(app, config, request, onEvent) {
 
   try {
     phase = 'fetching-response';
-    response = await fetchChatCompletion(config, requestBody);
+    response = await fetchChatCompletion(app, config, requestBody);
     responseMetadata = responseMeta(response);
 
     phase = 'checking-response-status';
@@ -545,7 +572,7 @@ async function streamChatWithConfig(app, config, request, onEvent) {
       if (isResponseFormatUnsupported(detail)) {
         phase = 'retrying-without-response-format';
         requestBody = createChatRequestBody(config, request, { stream: true, omitResponseFormat: true });
-        response = await fetchChatCompletion(config, requestBody);
+        response = await fetchChatCompletion(app, config, requestBody);
         responseMetadata = responseMeta(response);
       } else {
         throw new Error(detail || 'AI 流式请求失败');
@@ -638,7 +665,7 @@ async function streamChatWithConfig(app, config, request, onEvent) {
   }
 }
 
-async function testVolcengineImageModel(config) {
+async function testVolcengineImageModel(app, config) {
   const imageConfig = config.image_model || {};
 
   if (!imageConfig.api_key) {
@@ -649,6 +676,7 @@ async function testVolcengineImageModel(config) {
     throw new Error('请先填写火山方舟生图模型名称');
   }
 
+  trackAiRequest(app, config, { ai_request_type: 'image' });
   const response = await fetch(`${trimBaseUrl(imageConfig.base_url || 'https://ark.cn-beijing.volces.com/api/v3')}/images/generations`, {
     method: 'POST',
     headers: createHeaders(imageConfig.api_key),
@@ -680,7 +708,7 @@ async function testVolcengineImageModel(config) {
   };
 }
 
-async function testGoogleImageModel(config) {
+async function testGoogleImageModel(app, config) {
   const imageConfig = config.image_model || {};
 
   if (!imageConfig.api_key) {
@@ -691,6 +719,7 @@ async function testGoogleImageModel(config) {
     throw new Error('请先填写 Google 生图模型名称');
   }
 
+  trackAiRequest(app, config, { ai_request_type: 'image' });
   const response = await fetch(`${trimBaseUrl(imageConfig.base_url || 'https://generativelanguage.googleapis.com/v1beta')}/models/${encodeURIComponent(imageConfig.model_name)}:generateContent`, {
     method: 'POST',
     headers: {
@@ -746,6 +775,7 @@ async function generateVolcengineImage(app, config, request) {
       status: 'pending',
       created_at: new Date().toISOString(),
     });
+    trackAiRequest(app, config, { ai_request_type: 'image' });
     const response = await fetch(`${trimBaseUrl(imageConfig.base_url || 'https://ark.cn-beijing.volces.com/api/v3')}/images/generations`, {
       method: 'POST',
       headers: createHeaders(imageConfig.api_key),
@@ -816,6 +846,7 @@ async function generateGoogleImage(app, config, request) {
       status: 'pending',
       created_at: new Date().toISOString(),
     });
+    trackAiRequest(app, config, { ai_request_type: 'image' });
     const response = await fetch(`${trimBaseUrl(imageConfig.base_url || 'https://generativelanguage.googleapis.com/v1beta')}/models/${encodeURIComponent(imageConfig.model_name)}:generateContent`, {
       method: 'POST',
       headers: {
@@ -902,12 +933,19 @@ function createAiService({ app, configStore }) {
     },
 
     async testImageModel(config) {
-      if (config.image_model?.provider === 'volcengine') {
-        return testVolcengineImageModel(config);
+      const currentConfig = configStore.load();
+      const trackedConfig = {
+        ...config,
+        analytics_client_id: config.analytics_client_id || currentConfig.analytics_client_id,
+        analytics_created_at: config.analytics_created_at || currentConfig.analytics_created_at,
+      };
+
+      if (trackedConfig.image_model?.provider === 'volcengine') {
+        return testVolcengineImageModel(app, trackedConfig);
       }
 
-      if (config.image_model?.provider === 'google-ai-studio') {
-        return testGoogleImageModel(config);
+      if (trackedConfig.image_model?.provider === 'google-ai-studio') {
+        return testGoogleImageModel(app, trackedConfig);
       }
 
       throw new Error('当前服务商暂不支持测试');
