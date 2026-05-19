@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -6,6 +7,7 @@ const watchPath = process.argv[2];
 const isWorkersBuild = Boolean(process.env.WORKERS_CI || process.env.WORKERS_CI_COMMIT_SHA);
 const forceDeploy = process.env.FORCE_DEPLOY === '1';
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const noticeBindingName = 'NOTICE_STORE';
 
 if (!watchPath) {
   console.error('Usage: node deploy-if-changed.mjs <watch-path>');
@@ -21,7 +23,8 @@ function run(command, args, options = {}) {
 }
 
 function deploy() {
-  runPreDeploySetup();
+  runPreDeploySetupIfNeeded();
+  console.log(`Running wrangler deploy for ${watchPath}.`);
 
   const result = spawnSync('npx', ['wrangler', 'deploy'], {
     stdio: 'inherit',
@@ -31,11 +34,19 @@ function deploy() {
   process.exit(result.status ?? 1);
 }
 
-function runPreDeploySetup() {
+function runPreDeploySetupIfNeeded() {
   if (String(watchPath || '').replace(/\\/g, '/') !== 'analytics/worker') {
     return;
   }
 
+  const workerConfigPath = resolve(__dirname, '../worker/wrangler.jsonc');
+  const source = readFileSync(workerConfigPath, 'utf8');
+  if (hasNoticeStoreBinding(source)) {
+    console.log('NOTICE_STORE KV namespace already configured; skipping setup.');
+    return;
+  }
+
+  console.log('NOTICE_STORE KV namespace is not configured; running setup.');
   const setupScript = resolve(__dirname, 'setup-notice-kv.mjs');
   const result = spawnSync(process.execPath, [setupScript], {
     stdio: 'inherit',
@@ -45,6 +56,12 @@ function runPreDeploySetup() {
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
+}
+
+function hasNoticeStoreBinding(source) {
+  const escapedBinding = noticeBindingName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`\\{[\\s\\S]*?"binding"\\s*:\\s*"${escapedBinding}"[\\s\\S]*?"id"\\s*:\\s*"[^"<]+"[\\s\\S]*?\\}`);
+  return pattern.test(source);
 }
 
 function getTrimmedStdout(result) {

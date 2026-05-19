@@ -57,7 +57,17 @@ function parseNamespaceList(output, workerName) {
   try {
     namespaces = JSON.parse(output);
   } catch {
-    return '';
+    const start = output.indexOf('[');
+    const end = output.lastIndexOf(']');
+    if (start === -1 || end === -1 || end <= start) {
+      return '';
+    }
+
+    try {
+      namespaces = JSON.parse(output.slice(start, end + 1));
+    } catch {
+      return '';
+    }
   }
 
   const items = Array.isArray(namespaces) ? namespaces : [];
@@ -140,6 +150,18 @@ if (listResult.status === 0) {
 
 const createResult = runWrangler(['kv', 'namespace', 'create', bindingName]);
 if (createResult.status !== 0) {
+  if (/already exists/i.test(createResult.output)) {
+    const retryListResult = runWrangler(['kv', 'namespace', 'list', '--json']);
+    if (retryListResult.status === 0) {
+      const existingId = parseNamespaceList(retryListResult.output, workerName);
+      if (existingId) {
+        updateWranglerConfig(existingId);
+        console.log(`NOTICE_STORE KV namespace reused after create conflict: ${existingId}`);
+        process.exit(0);
+      }
+    }
+  }
+
   printCredentialHelp(createResult.output || listResult.output);
   process.exit(createResult.status || 1);
 }

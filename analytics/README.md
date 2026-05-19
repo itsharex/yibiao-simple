@@ -65,16 +65,14 @@ Dataset 不需要手动创建，第一次写入后会自动创建 `agnet_analyti
 
 客户端公告保存到 Cloudflare KV，绑定名固定为 `NOTICE_STORE`。
 
-`analytics/worker` 部署前会自动运行 `setup:notice-kv`：如果 `wrangler.jsonc` 已有 `NOTICE_STORE` 的 id，会直接复用；如果 Cloudflare 账号下已有同名 namespace，会自动复用；否则会自动创建并把 id 写入本次部署环境中的 `wrangler.jsonc` 后继续部署。
-
-自动创建要求执行部署的 CI 环境具备 Cloudflare 凭据：
+KV namespace 只需要创建一次。自动创建要求执行脚本的环境具备 Cloudflare 凭据：
 
 | 变量 | 说明 |
 | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | 需要具备 Workers KV namespace 读写和 Worker 部署权限 |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID，避免 Wrangler 在非交互环境选择账号 |
 
-如果凭据只配置在 GitHub Actions Secrets，而当前部署跑在 Cloudflare Workers Builds 中，Cloudflare 构建环境读取不到 GitHub Secrets。此时要么把同名变量也配置到 Cloudflare Worker 的构建环境变量，要么改用 GitHub Actions 执行 `npm run deploy`。
+`analytics/worker` 部署前会检查 `wrangler.jsonc` 是否已经配置 `NOTICE_STORE`。已配置时直接部署；未配置时才运行 `setup:notice-kv`，创建或复用已有 KV namespace，并把 id 写入本次部署使用的 `wrangler.jsonc`。
 
 本地首次启用时，也可以在登录 Wrangler 后手动运行：
 
@@ -132,7 +130,7 @@ npx wrangler kv namespace create NOTICE_STORE
 | 自定义域名 | `analytics.agnet.top` |
 | Analytics Engine binding | `ANALYTICS` |
 | Analytics Engine dataset | `agnet_analytics` |
-| 公告 KV binding | `NOTICE_STORE`（部署前自动创建或复用） |
+| 公告 KV binding | `NOTICE_STORE`（首次部署时创建或复用） |
 | 变量保留 | `keep_vars: true`，避免部署覆盖后台配置 |
 
 部署后在 Worker 的 `Settings -> Variables and Secrets` 配置 Secret：
@@ -320,7 +318,7 @@ track('page_view', {
 | 问题 | 处理 |
 | --- | --- |
 | `unauthorized` | 检查统计页面输入的 `ADMIN_TOKEN` 是否与 Worker Secret 一致 |
-| `NOTICE_STORE is not configured` | 检查部署环境是否有 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`；或本地运行 `cd analytics\worker; npm run setup:notice-kv` 后重新部署 Worker |
+| `NOTICE_STORE is not configured` | 先确认 Worker 的 `Settings -> Bindings` 存在 `NOTICE_STORE`，或本地运行 `cd analytics\worker; npm run setup:notice-kv` 后提交更新后的 `wrangler.jsonc` 并重新部署 Worker |
 | `invalid projectName` | 检查项目名格式 |
 | `invalid event` | 仅支持 `app_open`、`page_view` |
 | `missing page` | `page_view` 必须传 `page` |
