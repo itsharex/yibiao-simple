@@ -85,6 +85,17 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
 
+      - name: Cache Electron build downloads
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
       - name: Install dependencies
         run: npm ci
 
@@ -118,6 +129,30 @@ jobs:
       - name: Build renderer
         run: npm run build
 
+      - name: Preload Electron macOS runtimes
+        if: runner.os == 'macOS'
+        run: |
+          export ELECTRON_CACHE="$HOME/Library/Caches/electron"
+          ELECTRON_VERSION="$(node -p "require('./node_modules/electron/package.json').version")"
+          cache_dir="$ELECTRON_CACHE"
+          mkdir -p "$cache_dir"
+
+          for arch in x64 arm64; do
+            file="$cache_dir/electron-v${ELECTRON_VERSION}-darwin-${arch}.zip"
+            if [ -f "$file" ] && unzip -tq "$file" >/dev/null 2>&1; then
+              echo "Electron ${ELECTRON_VERSION} darwin-${arch} already cached."
+              continue
+            fi
+
+            tmp="${file}.tmp"
+            rm -f "$file" "$tmp"
+            curl --fail --location --retry 5 --retry-all-errors --retry-delay 10 \
+              "https://github.com/electron/electron/releases/download/v${ELECTRON_VERSION}/electron-v${ELECTRON_VERSION}-darwin-${arch}.zip" \
+              --output "$tmp"
+            unzip -tq "$tmp" >/dev/null
+            mv "$tmp" "$file"
+          done
+
       - name: Build Windows NSIS and ZIP artifacts
         if: runner.os == 'Windows'
         run: npx electron-builder --win nsis zip --publish never
@@ -128,7 +163,22 @@ jobs:
 
       - name: Build and publish macOS artifacts
         if: runner.os == 'macOS'
-        run: npx electron-builder --mac --publish never
+        run: |
+          export ELECTRON_CACHE="$HOME/Library/Caches/electron"
+          export ELECTRON_BUILDER_CACHE="$HOME/Library/Caches/electron-builder"
+
+          for attempt in 1 2 3; do
+            echo "Build macOS artifacts, attempt ${attempt}/3."
+            if npx electron-builder --mac --publish never; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+
+            sleep $((attempt * 20))
+          done
 
       - name: Package macOS DMG with instructions
         if: runner.os == 'macOS'
