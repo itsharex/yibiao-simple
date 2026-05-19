@@ -727,8 +727,9 @@ function renderMarkdownTableRow(row) {
 export async function withLegacyWordDocxFile(inputPath, callback) {
   const soffice = await findLibreOfficeCommand();
   if (!soffice) {
-    throw new ConversionError('office_backend_missing', '未找到 LibreOffice，无法转换 DOC/WPS 文件', {
+    throw new ConversionError('office_backend_missing', getLibreOfficeMissingMessage(), {
       inputPath,
+      platform: process.platform,
     });
   }
 
@@ -768,11 +769,20 @@ async function findLibreOfficeCommand() {
     process.env.LIBREOFFICE_PATH,
     'soffice',
     'libreoffice',
+    ...getPlatformLibreOfficeCandidates(),
+    ...await findLibreOfficeCandidatesBySpotlight(),
     'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
     'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
-  ].filter(Boolean);
+  ].map(normalizeCommandCandidate).filter(Boolean);
+
+  const checked = new Set();
 
   for (const candidate of candidates) {
+    if (checked.has(candidate)) {
+      continue;
+    }
+    checked.add(candidate);
+
     if (path.isAbsolute(candidate)) {
       if (existsSync(candidate)) {
         return candidate;
@@ -784,6 +794,75 @@ async function findLibreOfficeCommand() {
     }
   }
   return null;
+}
+
+function getLibreOfficeMissingMessage() {
+  if (process.platform === 'darwin') {
+    return '未找到 LibreOffice，请确认已安装到“应用程序”文件夹，或将 DOC/WPS 文件另存为 DOCX/PDF 后重试';
+  }
+  return '未找到 LibreOffice，请安装 LibreOffice，或将 DOC/WPS 文件另存为 DOCX/PDF 后重试';
+}
+
+function getPlatformLibreOfficeCandidates() {
+  if (process.platform !== 'darwin') {
+    return [];
+  }
+
+  return [
+    '/Applications/LibreOffice.app/Contents/MacOS/soffice',
+    path.join(os.homedir(), 'Applications', 'LibreOffice.app', 'Contents', 'MacOS', 'soffice'),
+    '/opt/homebrew/bin/soffice',
+    '/usr/local/bin/soffice',
+    '/opt/local/bin/soffice',
+  ];
+}
+
+async function findLibreOfficeCandidatesBySpotlight() {
+  if (process.platform !== 'darwin') {
+    return [];
+  }
+
+  const queries = [
+    'kMDItemFSName == "LibreOffice.app"',
+    'kMDItemCFBundleIdentifier == "org.libreoffice.script"',
+  ];
+  const candidates = [];
+
+  for (const query of queries) {
+    try {
+      const { stdout } = await runProcess('mdfind', [query], { timeoutMs: 10000 });
+      for (const line of normalizeNewlinesOnly(stdout).split('\n')) {
+        const appPath = line.trim();
+        if (appPath.endsWith('LibreOffice.app')) {
+          candidates.push(path.join(appPath, 'Contents', 'MacOS', 'soffice'));
+        }
+      }
+    } catch {
+      // Spotlight can be disabled or unavailable; fixed paths and PATH lookup still apply.
+    }
+  }
+
+  return candidates;
+}
+
+function normalizeCommandCandidate(value) {
+  let candidate = String(value || '').trim();
+  if (!candidate) {
+    return '';
+  }
+  if ((candidate.startsWith('"') && candidate.endsWith('"')) || (candidate.startsWith("'") && candidate.endsWith("'"))) {
+    candidate = candidate.slice(1, -1).trim();
+  }
+  if (candidate === '~') {
+    return os.homedir();
+  }
+  if (candidate.startsWith('~/') || candidate.startsWith('~\\')) {
+    candidate = path.join(os.homedir(), candidate.slice(2));
+  }
+  if (process.platform === 'darwin' && /LibreOffice\.app\/?$/i.test(candidate)) {
+    return path.join(candidate, 'Contents', 'MacOS', 'soffice');
+  }
+  return candidate;
 }
 
 async function canRunCommand(command, args) {
