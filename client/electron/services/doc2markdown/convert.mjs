@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { copyFile, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -32,6 +33,8 @@ const PDF_TEXT_LINE_TOLERANCE = 3;
 
 const { gfm } = turndownPluginGfm;
 const PDF_OP_NAMES = Object.fromEntries(Object.entries(OPS).map(([name, value]) => [value, name]));
+const requireCjs = createRequire(import.meta.url);
+const { LIBREOFFICE_REQUIRED_MESSAGE } = requireCjs('../documentParseErrors.cjs');
 
 export class ConversionError extends Error {
   constructor(code, message, details = {}) {
@@ -727,7 +730,7 @@ function renderMarkdownTableRow(row) {
 export async function withLegacyWordDocxFile(inputPath, callback) {
   const soffice = await findLibreOfficeCommand();
   if (!soffice) {
-    throw new ConversionError('office_backend_missing', getLibreOfficeMissingMessage(), {
+    throw new ConversionError('office_backend_missing', LIBREOFFICE_REQUIRED_MESSAGE, {
       inputPath,
       platform: process.platform,
     });
@@ -794,13 +797,6 @@ async function findLibreOfficeCommand() {
     }
   }
   return null;
-}
-
-function getLibreOfficeMissingMessage() {
-  if (process.platform === 'darwin') {
-    return '未找到 LibreOffice，请确认已安装到“应用程序”文件夹，或将 DOC/WPS 文件另存为 DOCX/PDF 后重试';
-  }
-  return '未找到 LibreOffice，请安装 LibreOffice，或将 DOC/WPS 文件另存为 DOCX/PDF 后重试';
 }
 
 function getPlatformLibreOfficeCandidates() {

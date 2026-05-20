@@ -3,6 +3,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { dialog } = require('electron');
 const AdmZip = require('adm-zip');
+const { formatDocumentParseError, isLibreOfficeMissingError, normalizeDocumentParseError } = require('./documentParseErrors.cjs');
 const { getImportedImagesDir } = require('../utils/paths.cjs');
 
 const parserLabels = {
@@ -73,8 +74,13 @@ async function parseLocalDocument(filePath, options = {}) {
   });
 }
 
-function formatImportError(error) {
-  const rawMessage = error instanceof Error ? error.message : String(error || '未知错误');
+function formatImportError(error, filePath) {
+  const normalized = normalizeDocumentParseError(error, filePath);
+  if (isLibreOfficeMissingError(normalized)) {
+    return normalized.message;
+  }
+
+  const rawMessage = formatDocumentParseError(normalized, filePath);
   if (/Can't find end of central directory|is this a zip file/i.test(rawMessage)) {
     return '文件解析失败：该文件不是有效的 DOCX 文档，请用 Word/WPS 另存为标准 DOCX 后重试';
   }
@@ -483,7 +489,7 @@ async function parseDocumentWithConfig(app, filePath, config, options = {}) {
     }
   } catch (error) {
     await deleteImportedImageAssets(assets).catch(() => undefined);
-    throw error;
+    throw normalizeDocumentParseError(error, filePath);
   }
   return preserveImages ? markdown : stripMarkdownImages(markdown);
 }
@@ -521,7 +527,7 @@ function createFileService({ app, configStore } = {}) {
       } catch (error) {
         return {
           success: false,
-          message: formatImportError(error),
+          message: formatImportError(error, filePath),
           file_name: path.basename(filePath),
           parser_provider: parser.provider,
           parser_label: parserLabels[parser.provider] || '本地解析',

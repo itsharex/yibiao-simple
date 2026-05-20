@@ -8,6 +8,7 @@ const cheerio = require('cheerio');
 const iconv = require('iconv-lite');
 const { PDFParse } = require('pdf-parse');
 const { getDuplicateCheckDir, getGeneratedImagesDir, getImportedImagesDir } = require('../utils/paths.cjs');
+const { normalizeDocumentParseError } = require('./documentParseErrors.cjs');
 const { parseDocumentWithConfig } = require('./fileService.cjs');
 
 const metadataLabels = {
@@ -631,7 +632,11 @@ async function extractOleMetadata(filePath) {
 async function extractConvertedDocxMetadata(filePath) {
   const converterUrl = pathToFileURL(path.join(__dirname, 'doc2markdown', 'convert.mjs')).href;
   const { withLegacyWordDocxFile } = await import(converterUrl);
-  return withLegacyWordDocxFile(filePath, (docxPath) => extractDocxMetadata(docxPath));
+  try {
+    return await withLegacyWordDocxFile(filePath, (docxPath) => extractDocxMetadata(docxPath));
+  } catch (error) {
+    throw normalizeDocumentParseError(error, filePath);
+  }
 }
 
 function mergeMetadataFields(target, source, options = {}) {
