@@ -63,7 +63,6 @@ export async function handleSummary(request, env, url) {
     SELECT
       blob4 AS version,
       COUNT(DISTINCT blob7) AS clients,
-      COUNT(DISTINCT CASE WHEN toDate(timestamp) = toDate(NOW()) THEN blob7 ELSE NULL END) AS todayClients,
       SUM(_sample_interval) AS count
     FROM ${DATASET}
     WHERE blob1 = ${project}
@@ -73,6 +72,19 @@ export async function handleSummary(request, env, url) {
     GROUP BY version
     ORDER BY version DESC
     LIMIT 50
+  `;
+
+  const todayVersionsSql = `
+    SELECT
+      blob4 AS version,
+      COUNT(DISTINCT blob7) AS todayClients
+    FROM ${DATASET}
+    WHERE blob1 = ${project}
+      AND blob4 != ''
+      AND blob7 != ''
+      AND toDate(timestamp) = toDate(NOW())
+    GROUP BY version
+    LIMIT 100
   `;
 
   const totalClientsSql = `
@@ -131,11 +143,12 @@ export async function handleSummary(request, env, url) {
   `;
 
   try {
-    const [daily, dailyClients, pages, versions, totalClients, todayActiveClients, wau, mau, activeClients, newClients] = await Promise.all([
+    const [daily, dailyClients, pages, versions, todayVersions, totalClients, todayActiveClients, wau, mau, activeClients, newClients] = await Promise.all([
       queryAnalytics(env, dailySql),
       queryAnalytics(env, dailyClientsSql),
       queryAnalytics(env, pagesSql),
       queryAnalytics(env, versionsSql),
+      queryAnalytics(env, todayVersionsSql),
       queryAnalytics(env, totalClientsSql),
       queryAnalytics(env, todayActiveClientsSql),
       queryAnalytics(env, wauSql),
@@ -151,6 +164,11 @@ export async function handleSummary(request, env, url) {
       activeClients: Number(activeClients.data?.[0]?.activeClients || 0),
       newClients: Number(newClients.data?.[0]?.newClients || 0),
     };
+    const todayClientsByVersion = new Map((todayVersions.data || []).map((row) => [row.version, Number(row.todayClients || 0)]));
+    const versionsWithTodayClients = (versions.data || []).map((row) => ({
+      ...row,
+      todayClients: todayClientsByVersion.get(row.version) || 0,
+    }));
 
     return json({
       code: 0,
@@ -166,7 +184,7 @@ export async function handleSummary(request, env, url) {
       daily: daily.data || [],
       dailyClients: dailyClients.data || [],
       pages: pages.data || [],
-      versions: versions.data || [],
+      versions: versionsWithTodayClients,
     });
   } catch (error) {
     logQueryError('summary', error);
