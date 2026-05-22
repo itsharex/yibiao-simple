@@ -1,5 +1,6 @@
 import { corsHeaders, json } from './http.js';
 import { handleConfigUsage } from './routes/configUsage.js';
+import { handleGitHubRepoStats } from './routes/githubRepoStats.js';
 import { handleHealth } from './routes/health.js';
 import { handleLatest } from './routes/latest.js';
 import { handleAdminNotice, handlePublicNotice } from './routes/notice.js';
@@ -18,6 +19,7 @@ const routes = new Map([
   ['/api/latest', handleLatest],
   ['/api/retention', handleRetention],
   ['/api/config-usage', handleConfigUsage],
+  ['/api/github-repo-stats', handleGitHubRepoStats],
 ]);
 
 export default {

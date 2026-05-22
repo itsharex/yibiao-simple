@@ -220,6 +220,17 @@ button:disabled {
   letter-spacing: -0.04em;
 }
 
+.card .card-link {
+  color: var(--primary);
+  font-size: 16px;
+  letter-spacing: 0;
+  text-decoration: none;
+}
+
+.card .card-link:hover {
+  text-decoration: underline;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

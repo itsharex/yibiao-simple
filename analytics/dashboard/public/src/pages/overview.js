@@ -23,15 +23,23 @@ function normalizeDaily(rows, clientRows) {
   return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
 }
 
+function renderGitHubStats(repo) {
+  state.githubStars.textContent = repo ? formatNumber(repo.stars) : '-';
+  state.githubForks.textContent = repo ? formatNumber(repo.forks) : '-';
+  state.githubOpenIssues.textContent = repo ? formatNumber(repo.openIssues) : '-';
+  state.githubRepoUrl.href = repo?.htmlUrl || 'https://github.com/FB208/OpenBidKit_Yibiao';
+}
+
 export async function loadOverview() {
   assertReady();
   await loadProjectOptions();
   saveSettings();
 
   const { projectName, days } = getEncodedProjectAndDays();
-  const [summary, retention] = await Promise.all([
+  const [summary, retention, githubStats] = await Promise.all([
     requestJson(`/api/summary?projectName=${projectName}&days=${days}`),
     requestJson(`/api/retention?projectName=${projectName}&days=${days}`),
+    requestJson('/api/github-repo-stats').catch(() => ({ repo: null })),
   ]);
 
   const daily = normalizeDaily(summary.daily || [], summary.dailyClients || []);
@@ -46,6 +54,7 @@ export async function loadOverview() {
   state.mau.textContent = formatNumber(summary.mau);
   state.newClients.textContent = formatNumber(summary.newClients);
   state.returningClients.textContent = formatNumber(summary.returningClients);
+  renderGitHubStats(githubStats.repo);
 
   renderTable(state.dailyTable, daily, [
     { key: 'date', label: '日期' },

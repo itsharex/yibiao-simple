@@ -5,6 +5,9 @@ export const NOTICE_KEY_PREFIX = 'project_notice:';
 export const NOTICE_TITLE_MAX_LENGTH = 120;
 export const NOTICE_CONTENT_MAX_LENGTH = 20000;
 export const WORKER_CODE_VERSION = 'notice-time-readable-v1';
+export const GITHUB_REPO_FULL_NAME = 'FB208/OpenBidKit_Yibiao';
+export const GITHUB_REPO_STATS_CACHE_KEY = `github_repo_stats:${GITHUB_REPO_FULL_NAME}`;
+export const GITHUB_REPO_STATS_CACHE_TTL_SECONDS = 1800;
 
 export const CONFIG_USAGE_FIELDS = [
   { key: 'fileParserProviders', blob: 'blob9' },

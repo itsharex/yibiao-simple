@@ -1,4 +1,4 @@
-# OpenBidKit Yibiao - Open-Source AI Bid Proposal Writing Assistant
+# Yibiao Bid Toolbox - AI Bid Proposal Writing Assistant
 
 <p align="center">
   <a href="./README.md">简体中文</a> | <strong>English</strong>
@@ -12,18 +12,18 @@
 </p>
 
 <p align="left">
-  <strong>🚀 An out-of-the-box open-source AI bid proposal writing tool for AI proposal writing, bid AI, AI bid generation, and technical proposal drafting.</strong>
+  <strong>🚀 Out-of-the-box, open-source, and free AI bid proposal writing tool focused on AI proposal writing, bid AI, and AI bid generation.</strong>
   <br>
   Yibiao Bid Toolbox is an intelligent bid document creation tool for tendering and bidding workflows. It is designed for proposal writers, presales engineers, project managers, and bid teams. The product covers the full workflow from importing tender documents to exporting editable Word proposals, including tender document parsing, scoring-point extraction, proposal outline generation, technical proposal drafting, expansion and rewriting, knowledge base reuse, duplicate-check workspace, and rejection-risk checklist workspace.
   <br>
-  If you are looking for an AI proposal writing tool, bid AI assistant, AI bid generation software, tender response generator, or technical proposal drafting assistant, Yibiao can be used as an open-source reference to improve proposal writing efficiency and reduce repetitive writing, manual scoring-point organization, and rejection-risk checking costs.
+  If you are looking for a free AI proposal writing tool, bid AI assistant, AI bid generation software, tender response generator, or technical proposal drafting assistant, Yibiao can be used as an open-source reference to improve proposal writing efficiency and reduce the time spent on repetitive writing, manual scoring-point organization, and rejection-risk checks.
 </p>
 
 ## 🌐 Official Website
 
 **Online Experience**: [https://yibiao.pro](https://yibiao.pro)
 
-Visit the website for product information, online demos, and support.
+Visit the website for more product information, online demos, and technical support.
 
 > **Ad Slot · Partnership**
 >
@@ -91,11 +91,11 @@ Download the latest release from [GitHub Releases](https://github.com/yibiaoai/y
 
 ### 🎬 Usage Demo
 
-<a href="https://www.youtube.com/watch?v=9id3AJBQz8U">
+<a href="https://www.bilibili.com/video/BV1sC5i6SE74">
   <img src="./screenshots/new_home.png" alt="Yibiao usage demo video" width="100%">
 </a>
 
-[Watch the usage demo on YouTube](https://www.youtube.com/watch?v=9id3AJBQz8U)
+[Watch the usage demo on Bilibili](https://www.bilibili.com/video/BV1sC5i6SE74)
 
 ## 🛠️ Technical Architecture
 
